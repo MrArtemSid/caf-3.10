@@ -148,6 +148,22 @@ static inline void warp_clock(void)
 	}
 }
 
+/* BEGIN add by xiaoju.liang@tcl.com */
+struct timezone local_tz;
+EXPORT_SYMBOL(local_tz);
+
+void set_localtimezone_timespec(struct timespec *ts)
+{
+	if (local_tz.tz_minuteswest != 0) {
+		struct timespec adjust;
+		adjust.tv_sec = local_tz.tz_minuteswest * 60;
+		adjust.tv_nsec = 0;
+
+		*ts = timespec_sub(*ts, adjust);
+	}
+}
+/* END xiaoju.liang@tcl.com */
+
 /*
  * In case for some reason the CMOS clock has not already been running
  * in UTC, but in some local time: The first time we set the timezone,
@@ -179,6 +195,13 @@ int do_sys_settimeofday(const struct timespec *tv, const struct timezone *tz)
 			if (!tv)
 				warp_clock();
 		}
+		/* BEGIN add by xiaoju.liang@tcl.com */
+		/* it will set sys_tz the first time */
+		else {
+			/* just record the new local tz, do not warp clock */
+			local_tz = *tz;
+		}
+		/* END xiaoju.liang@tcl.com */
 	}
 	if (tv)
 		return do_settimeofday(tv);

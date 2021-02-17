@@ -9,6 +9,7 @@
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include <linux/export.h>
+bool i2c_resume_completed = false; // Add by ning.wei@tcl.com i2c resume comphete flag PR:1430059  2016/01/13
 
 #ifdef CONFIG_PM_RUNTIME
 /**
@@ -122,7 +123,7 @@ EXPORT_SYMBOL_GPL(pm_generic_suspend_late);
 int pm_generic_suspend(struct device *dev)
 {
 	const struct dev_pm_ops *pm = dev->driver ? dev->driver->pm : NULL;
-
+	i2c_resume_completed = false; //  Add by ning.wei@tcl.com i2c resume comphete flag PR:1430059  2016/01/13
 	return pm && pm->suspend ? pm->suspend(dev) : 0;
 }
 EXPORT_SYMBOL_GPL(pm_generic_suspend);
@@ -266,7 +267,7 @@ EXPORT_SYMBOL_GPL(pm_generic_resume_early);
 int pm_generic_resume(struct device *dev)
 {
 	const struct dev_pm_ops *pm = dev->driver ? dev->driver->pm : NULL;
-
+	i2c_resume_completed = true; // Add by ning.wei@tcl.com i2c resume comphete flag PR:1430059  2016/01/13
 	return pm && pm->resume ? pm->resume(dev) : 0;
 }
 EXPORT_SYMBOL_GPL(pm_generic_resume);

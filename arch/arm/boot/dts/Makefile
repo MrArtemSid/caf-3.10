@@ -215,6 +215,44 @@ targets += $(DTB_LIST)
 #used for cleaning - not building
 subdir- := qcom
 endif
+#[Feature]-Add-BEGIN by TCTSZ. add dts project Pixi3454GSPR shengwang.luo@tcl.com, 2015/10/10, ALM714748
+ifeq ($(TARGET_PRODUCT),POP45C)
+subdir- := POP45C
+endif
+ifeq ($(TARGET_PRODUCT),POP455C)
+subdir- := POP455C
+endif
+ifeq ($(TARGET_PRODUCT),POP455CTMO)
+subdir- := POP455CTMO
+endif
+ifeq ($(TARGET_PRODUCT),Pixi3454GSPR)
+subdir- := Pixi3454GSPR
+endif
+ifeq ($(TARGET_PRODUCT),POP45)
+subdir- := POP45
+endif
+ifeq ($(TARGET_PRODUCT),Pixi4554G)
+subdir- := Pixi4554G
+endif
+#[Feature]-Add END by TCTSZ. shengwang.luo@tcl.com, 2015/10/10, ALM714748
+#ying.pang for Pixi445SPR sharegit 
+ifeq ($(TARGET_PRODUCT),Pixi445SPR)
+subdir- := Pixi445SPR
+endif
+#ying.pang for Pixi464G sharegit 
+ifeq ($(TARGET_PRODUCT),Pixi464G)
+subdir- := Pixi464G
+endif
+#chuhua.liang for GOPLAY2 sharegit.
+ifeq ($(TARGET_PRODUCT),GOPLAY2)
+subdir- := GOPLAY2
+endif
+ifeq ($(TARGET_PRODUCT),Pixi445Cricket)
+subdir- := Pixi445Cricket
+endif
+ifeq ($(TARGET_PRODUCT),Pixi464GCricket)
+subdir- := Pixi464GCricket
+endif
 
 # *.dtb used to be generated in the directory above. Clean out the
 # old build results so people don't accidentally use them.

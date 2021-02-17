@@ -26,6 +26,16 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/exception.h>
 
+//[Feature]-Add-BEGIN by TCTSZ. porting tct panic log. xiaoju.liang@tcl.com, 2015/7/3, for PR403392
+#ifdef CONFIG_TCT_LOG_PANIC
+//add by jch for add cup status and stack dump to panic info PR-798497
+#include <linux/fs.h>
+#include <linux/pagemap.h>
+#include <linux/rtc.h>
+//end add by jch for add cup status and stack dump to panic info PR-798497
+#endif
+//[Feature]-Add-BEGIN by TCTSZ. xiaoju.liang@tcl.com, 2015/7/3, for PR403392
+
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
 
@@ -110,6 +120,29 @@ void panic(const char *fmt, ...)
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
 	printk(KERN_EMERG "Kernel panic - not syncing: %s\n",buf);
+
+//[Feature]-Add-BEGIN by TCTSZ. porting tct panic log. xiaoju.liang@tcl.com, 2015/7/3, for PR403392
+#ifdef CONFIG_TCT_LOG_PANIC
+	do {
+		struct timespec ts;
+		struct rtc_time tm;
+
+		getnstimeofday(&ts);
+		rtc_time_to_tm(ts.tv_sec, &tm);
+
+		printk(KERN_EMERG "Kernel-Panic-Timestamp: %s %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
+				"TCT-Debug", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+				tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+
+		if (!test_taint(TAINT_DIE) && oops_in_progress <= 1) {
+			printk(KERN_EMERG "\n------------------Kernel panic begin dump stack of all cpus-------------------\n\n");
+			trigger_all_cpu_backtrace();
+			printk(KERN_EMERG "\n------------------Kernel panic finish dump stack of all cpus------------------\n\n");
+		}
+	} while (0);
+#endif
+//[Feature]-Add-BEGIN by TCTSZ. xiaoju.liang@tcl.com, 2015/7/3, for PR403392
+
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 	/*
 	 * Avoid nested stack-dumping if a panic occurs during oops processing

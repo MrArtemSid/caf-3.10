@@ -169,3 +169,11 @@ obj-$(CONFIG_ESOC)		+= esoc/
 obj-$(CONFIG_BIF)		+= bif/
 obj-$(CONFIG_SENSORS)		+= sensors/
 obj-$(CONFIG_SENSORS_SSC)	+= sensors/
+
+#[Feature]-Add-BEGIN by TCTSZ. porting TCT_debug. xiaoju.liang@tcl.com, 2015/7/1, for PR403392
+obj-$(CONFIG_TCT_DEBUG)		+= TCT_debug/
+#[Feature]-Add-END by TCTSZ. xiaoju.liang@tcl.com, 2015/7/1, for PR403392
+
+#[Feature]-Add-BEGIN by TCTSZ. shengwang.luo@tcl.com, add GPIO expander driver, 2016/02/01
+obj-$(CONFIG_GPIO_EXP)	+= gpio_exp/
+#[Feature]-Add-END by TCTSZ. shengwang.luo@tcl.com, 2016/02/01

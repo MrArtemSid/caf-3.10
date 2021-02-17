@@ -19,12 +19,18 @@
 
 #include "mdss_dsi.h"
 #include "mdss_edp.h"
+//add by yusen.ke.sz@tcl.com at 20150623 for display Mipi clk
 
+#include <linux/proc_fs.h> 
+#include <linux/magic.h>
+#include <linux/atomic.h>
+//add end
 #define SW_RESET BIT(2)
 #define SW_RESET_PLL BIT(0)
 #define PWRDN_B BIT(7)
 
 static struct dsi_clk_desc dsi_pclk;
+uint32_t iMipiClk = 0;//add by yusen.ke.sz@tcl.com at 20150623 for display Mipi clk
 
 void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 {
@@ -587,7 +593,48 @@ void mdss_dsi_shadow_clk_deinit(struct mdss_dsi_ctrl_pdata  *ctrl)
 
 #define PREF_DIV_RATIO 27
 struct dsiphy_pll_divider_config pll_divider_config;
+//add by yusen.ke.sz@tcl.com at 20150623 for display mipiclk
+static int ts_Mipi_read(struct file *file, char __user *user_buf,
+         size_t count, loff_t *ppos)
+{
+	char *buff;
+    	int desc = 0;
+    	ssize_t ret;
+	buff = kmalloc(1024, GFP_KERNEL);
+	if (!buff)
+		return -ENOMEM;
+   	 desc = sprintf(buff, "%d\n", iMipiClk);
+	ret = simple_read_from_buffer(user_buf, count, ppos,
+		buff, desc);
+  	  kfree(buff);
+	return ret;
+   
+}
 
+static struct proc_dir_entry *ts_Mipi_file=NULL;
+static struct file_operations LCD_info_Mipi = {
+	.write = NULL,
+	.read = ts_Mipi_read,
+	.open = simple_open,
+	.owner = THIS_MODULE,
+	};
+static void init_adb_proc(void)
+{
+	
+	
+	ts_Mipi_file =  proc_create("mipi_clk",
+			S_IWUSR | S_IWGRP | S_IRUSR | S_IRGRP,
+			ts_Mipi_file,
+			&LCD_info_Mipi);
+	if (ts_Mipi_file == NULL) {
+		printk(KERN_ERR "mipi_clk: init_log_proc create_proc_entry fails\n");
+		//goto tp_info_proc_file_failed;
+	}
+	else
+		printk(KERN_ERR "mipi_clk: init_log_proc create_proc_entry pass\n");
+}
+
+//add end
 int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 			    int frame_rate)
 {
@@ -649,6 +696,11 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 	}
 	pll_divider_config.clk_rate = panel_info->clk_rate;
 
+	//add by yusen.ke.sz@tcl.com at 20150623 display MIPI CLK 
+	iMipiClk = panel_info->clk_rate;
+	//printk(KERN_ERR "init_adb_proc 8974.c start");
+	init_adb_proc();
+	//add end
 
 	if (pll_divider_config.clk_rate == 0)
 		pll_divider_config.clk_rate = 454000000;

@@ -26,7 +26,7 @@
 #include <linux/delay.h>
 #include <linux/regulator/consumer.h>
 #include <linux/delay.h>
-
+#include <linux/of_gpio.h>  //add by junfeng.zhou
 #define WLED_MOD_EN_REG(base, n)	(base + 0x60 + n*0x10)
 #define WLED_IDAC_DLY_REG(base, n)	(WLED_MOD_EN_REG(base, n) + 0x01)
 #define WLED_FULL_SCALE_REG(base, n)	(WLED_IDAC_DLY_REG(base, n) + 0x01)
@@ -418,6 +418,12 @@ struct mpp_config_data {
 	u32	min_uV;
 	struct regulator *mpp_reg;
 	bool	enable;
+	//add by junfeng.zhou . begin
+# if defined(JRD_PROJECT_PIXI3454GSPR) || defined(JRD_PROJECT_PIXI445SPR)
+	int 	gpio_red_num;
+	int 	gpio_green_num;
+#endif
+	//adbb by junfeng.zhou.end
 };
 
 /**
@@ -862,9 +868,13 @@ static int qpnp_wled_set(struct qpnp_led_data *led)
 
 static int qpnp_mpp_set(struct qpnp_led_data *led)
 {
-	int rc;
+//[Feature]-Add-BEGIN by TCTSZ. add leds blink for leds driver porting junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
+/*	int rc;
 	u8 val;
-	int duty_us, duty_ns, period_us;
+	int duty_us, duty_ns, period_us;*/
+	int rc, val;
+	int duty_us;
+//[Feature]-Add-END by TCTSZ. junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
 
 	if (led->cdev.brightness) {
 		if (led->mpp_cfg->mpp_reg && !led->mpp_cfg->enable) {
@@ -903,9 +913,11 @@ static int qpnp_mpp_set(struct qpnp_led_data *led)
 					led->mpp_cfg->pwm_cfg->default_mode;
 			}
 		}
+
 		if (led->mpp_cfg->pwm_mode == PWM_MODE) {
+                    //[Feature]-Add-BEGIN by TCTSZ. add leds blink for leds driver porting junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
 			/*config pwm for brightness scaling*/
-			period_us = led->mpp_cfg->pwm_cfg->pwm_period_us;
+                    /*period_us = led->mpp_cfg->pwm_cfg->pwm_period_us;
 			if (period_us > INT_MAX / NSEC_PER_USEC) {
 				duty_us = (period_us * led->cdev.brightness) /
 					LED_FULL;
@@ -925,7 +937,31 @@ static int qpnp_mpp_set(struct qpnp_led_data *led)
 				dev_err(&led->spmi_dev->dev, "Failed to " \
 					"configure pwm for new values\n");
 				goto err_mpp_reg_write;
+			}*/
+			pwm_disable(led->mpp_cfg->pwm_cfg->pwm_dev);
+			if( led->mpp_cfg->pwm_cfg->use_blink &&(led->cdev.brightness<LED_FULL)){
+				duty_us = led->cdev.blink_delay_on *1000;
 			}
+			else{
+				duty_us = (led->mpp_cfg->pwm_cfg->pwm_period_us *
+					led->cdev.brightness) / LED_FULL;
+			}
+
+			if(led->mpp_cfg->pwm_cfg->use_blink&&(duty_us==led->mpp_cfg->pwm_cfg->pwm_period_us))
+			{
+				led->mpp_cfg->pwm_cfg->pwm_period_us =27;
+				duty_us =27;
+			}
+
+			rc = pwm_config_us(led->mpp_cfg->pwm_cfg->pwm_dev,
+					duty_us,
+					led->mpp_cfg->pwm_cfg->pwm_period_us);
+			if (rc < 0) {
+				dev_err(&led->spmi_dev->dev, "Failed to " \
+					"configure pwm for new values\n");
+				return rc;
+			}
+//[Feature]-Add-END by TCTSZ. junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
 		}
 
 		if (led->mpp_cfg->pwm_mode != MANUAL_MODE)
@@ -944,7 +980,17 @@ static int qpnp_mpp_set(struct qpnp_led_data *led)
 			}
 
 			val = (led->cdev.brightness / LED_MPP_CURRENT_MIN) - 1;
-
+		//modify by bin.zhang@jrdcom.com for setting buttonlight constant current start
+		#if defined(JRD_PROJECT_POP455CTMO)
+			// Button backlight was on-off status, don't charge the current value at PIXI35.
+			pr_debug("name:%s val:%d\n", led->cdev.name, val);
+			if(strncmp(led->cdev.name, "button-backlight", 16) == 0)//(led->cdev.name[1] == 'u')
+			{
+				val = (led->mpp_cfg->current_setting / LED_MPP_CURRENT_MIN) - 1;
+			}
+			pr_debug("name:%s val:%d current_setting:%d.\n", led->cdev.name, val, led->mpp_cfg->current_setting);
+		#endif
+		//modify by bin.zhang@jrdcom.com for setting buttonlight constant current end
 			rc = qpnp_led_masked_write(led,
 					LED_MPP_SINK_CTRL(led->base),
 					LED_MPP_SINK_MASK, val);
@@ -2612,11 +2658,15 @@ restore:
 static void led_blink(struct qpnp_led_data *led,
 			struct pwm_config_data *pwm_cfg)
 {
-	int rc;
+    //[Del]-Add-BEGIN by TCTSZ. Del qcom blink mode  for leds porting junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
+    //int rc;
+    //[Del]-Add-END by TCTSZ. junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
 
 	flush_work(&led->work);
 	mutex_lock(&led->lock);
 	if (pwm_cfg->use_blink) {
+//[Del]-Add-BEGIN by TCTSZ. Del qcom blink mode  for leds porting junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
+#if 0
 		if (led->cdev.brightness) {
 			pwm_cfg->blinking = true;
 			if (led->id == QPNP_ID_LED_MPP)
@@ -2652,6 +2702,22 @@ static void led_blink(struct qpnp_led_data *led,
 				dev_err(&led->spmi_dev->dev,
 				"KPDBL set brightness failed (%d)\n", rc);
 		}
+#endif
+ //[Del]-Add-END by TCTSZ. junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
+//[Feature]-Add-BEGIN by TCTSZ. add leds blink for leds driver porting junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
+    if ( led->id == QPNP_ID_LED_MPP && led->mpp_cfg->pwm_mode == PWM_MODE ) {
+			pwm_cfg->blinking = true;
+			led->mpp_cfg->pwm_cfg->pwm_period_us =1000*(led->cdev.blink_delay_on+led->cdev.blink_delay_off);
+		} else {
+			pwm_cfg->blinking = false;
+			pwm_cfg->mode = pwm_cfg->default_mode;
+			/*if (led->id == QPNP_ID_LED_MPP)
+				led->mpp_cfg->pwm_mode = pwm_cfg->default_mode;*/
+		}
+		pwm_free(pwm_cfg->pwm_dev);
+		qpnp_pwm_init(pwm_cfg, led->spmi_dev, led->cdev.name);
+		qpnp_led_set(&led->cdev, led->cdev.brightness);
+//[Feature]-Add-END by TCTSZ. junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
 	}
 	mutex_unlock(&led->lock);
 }
@@ -2669,8 +2735,13 @@ static ssize_t blink_store(struct device *dev,
 	if (ret)
 		return ret;
 	led = container_of(led_cdev, struct qpnp_led_data, cdev);
-	led->cdev.brightness = blinking ? led->cdev.max_brightness : 0;
-
+//[Feature]-Add-BEGIN by TCTSZ. add leds blink for leds driver porting junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
+	//led->cdev.brightness = blinking ? led->cdev.max_brightness : 0;
+	led->cdev.blink_delay_on = blinking &0xFFFF;
+	led->cdev.blink_delay_off = (blinking &0xFFFF0000)>>16;
+	led->cdev.brightness = blinking ? (led->cdev.max_brightness)* \
+		(led->cdev.blink_delay_on)/(led->cdev.blink_delay_on+led->cdev.blink_delay_off) : 0;
+//[Feature]-Add-END by TCTSZ. junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
 	switch (led->id) {
 	case QPNP_ID_LED_MPP:
 		led_blink(led, led->mpp_cfg->pwm_cfg);
@@ -2690,6 +2761,84 @@ static ssize_t blink_store(struct device *dev,
 	return count;
 }
 
+//add by junfeng.zhou begin
+#if defined(JRD_PROJECT_PIXI3454GSPR) || defined(JRD_PROJECT_PIXI445SPR)
+static ssize_t red_gpio_store(struct device *dev,
+	struct device_attribute *attr,
+	const char *buf, size_t count)
+{
+	struct qpnp_led_data *led;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+	unsigned long brightness = 0 ;
+    
+	ret = kstrtoul(buf, 10, &brightness);
+	if (ret)
+		return ret;
+	led = container_of(led_cdev, struct qpnp_led_data, cdev);
+	//led->cdev.brightness = blinking ? led->cdev.max_brightness : 0;
+	 if(brightness != 0)
+	 {
+		gpio_direction_output(led->mpp_cfg->gpio_red_num, 1);
+	}
+	 else
+	{
+		//modifed by haimei.liu@tcl.com for preventing  current reversal
+		gpio_direction_input(led->mpp_cfg->gpio_red_num);
+		//gpio_direction_output(led->mpp_cfg->gpio_red_num, 0);
+	 }
+	return count;
+}
+static DEVICE_ATTR(red_gpio, 0664, NULL, red_gpio_store);
+
+static struct attribute *red_gpio_attrs[] = {
+	&dev_attr_red_gpio.attr,
+	NULL
+};
+
+static const struct attribute_group red_gpio_attr_group = {
+	.attrs = red_gpio_attrs,
+};
+
+static ssize_t green_gpio_store(struct device *dev,
+	struct device_attribute *attr,
+	const char *buf, size_t count)
+{
+	struct qpnp_led_data *led;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	unsigned long brightness = 0 ;
+	ssize_t ret = -EINVAL;
+
+	ret = kstrtoul(buf, 10, &brightness);
+	if (ret)
+		return ret;
+	led = container_of(led_cdev, struct qpnp_led_data, cdev);
+	//led->cdev.brightness = blinking ? led->cdev.max_brightness : 0;
+	 if(brightness != 0)
+	 {
+		gpio_direction_output(led->mpp_cfg->gpio_green_num, 1);
+	}
+	 else
+	{
+		//modifed by haimei.liu@tcl.com for preventing  current reversal
+		gpio_direction_input(led->mpp_cfg->gpio_green_num);
+		//gpio_direction_output(led->mpp_cfg->gpio_green_num, 0);
+	 }
+
+	 return count;
+}
+static DEVICE_ATTR(green_gpio, 0664, NULL, green_gpio_store);
+
+static struct attribute *green_gpio_attrs[] = {
+	&dev_attr_green_gpio.attr,
+	NULL
+};
+
+static const struct attribute_group green_gpio_attr_group = {
+	.attrs = green_gpio_attrs,
+};
+#endif
+//add by junfeng.zhou end
 static DEVICE_ATTR(led_mode, 0664, NULL, led_mode_store);
 static DEVICE_ATTR(strobe, 0664, NULL, led_strobe_type_store);
 static DEVICE_ATTR(pwm_us, 0664, NULL, pwm_us_store);
@@ -3429,8 +3578,10 @@ static int qpnp_get_config_pwm(struct pwm_config_data *pwm_cfg,
 
 	pwm_cfg->use_blink =
 		of_property_read_bool(node, "qcom,use-blink");
-
-	if (pwm_cfg->mode == LPG_MODE || pwm_cfg->use_blink) {
+//[Feature]-Add-BEGIN by TCTSZ. add leds blink for leds driver porting junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
+	//if (pwm_cfg->mode == LPG_MODE || pwm_cfg->use_blink) {
+	if (pwm_cfg->mode == LPG_MODE/* || pwm_cfg->use_blink*/) {
+//[Feature]-Add-END by TCTSZ. junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
 		pwm_cfg->duty_cycles =
 			devm_kzalloc(&spmi_dev->dev,
 			sizeof(struct pwm_duty_cycles), GFP_KERNEL);
@@ -3746,6 +3897,11 @@ static int qpnp_get_config_mpp(struct qpnp_led_data *led,
 			led->mpp_cfg->current_setting = (u8) val;
 	} else if (rc != -EINVAL)
 		goto err_config_mpp;
+	//modify by bin.zhang@jrdcom.com for setting buttonlight constant current start
+    #if defined(JRD_PROJECT_POP455CTMO)
+		led->mpp_cfg->current_setting = 20;
+    #endif
+	//modify by bin.zhang@jrdcom.com for setting buttonlight constant current end
 
 	led->mpp_cfg->source_sel = LED_MPP_SOURCE_SEL_DEFAULT;
 	rc = of_property_read_u32(node, "qcom,source-sel", &val);
@@ -3800,7 +3956,35 @@ static int qpnp_get_config_mpp(struct qpnp_led_data *led,
 		led->mpp_cfg->pwm_cfg->default_mode = led_mode;
 	} else
 		return rc;
-
+	//add by junfeng.zhou begin
+#if defined(JRD_PROJECT_PIXI3454GSPR) || defined(JRD_PROJECT_PIXI445SPR)
+	led->mpp_cfg->gpio_red_num = -1;
+	led->mpp_cfg->gpio_red_num = of_get_named_gpio(node,"qcom,gpio_red_num", 0);
+	if (gpio_is_valid(led->mpp_cfg->gpio_red_num)) {
+		 rc = gpio_request(led->mpp_cfg->gpio_red_num,
+				"red_gpio");
+		if (rc) {
+			pr_err("request bklt gpio failed, rc=%d\n",
+					 rc);
+			goto err_config_mpp;
+		}
+		gpio_set_value(led->mpp_cfg->gpio_red_num,0);
+	}
+	
+	led->mpp_cfg->gpio_green_num = -1;
+	led->mpp_cfg->gpio_green_num = of_get_named_gpio(node,"qcom,gpio_green_num", 0);
+	if (gpio_is_valid(led->mpp_cfg->gpio_green_num)) {
+		 rc = gpio_request(led->mpp_cfg->gpio_green_num,
+				"green_gpio");
+		if (rc) {
+			pr_err("request bklt gpio failed, rc=%d\n",
+					   rc);
+			goto err_config_mpp;
+		}
+		gpio_set_value(led->mpp_cfg->gpio_green_num,0);
+	}
+#endif
+	//add by junfeng.zhou end
 	rc = qpnp_get_config_pwm(led->mpp_cfg->pwm_cfg, led->spmi_dev, node);
 	if (rc < 0)
 		goto err_config_mpp;
@@ -4048,17 +4232,36 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 					&blink_attr_group);
 				if (rc)
 					goto fail_id_check;
-
-				rc = sysfs_create_group(&led->cdev.dev->kobj,
+//[Del]-Add-BEGIN by TCTSZ. Del qcom blink mode  for leds porting junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
+				/*rc = sysfs_create_group(&led->cdev.dev->kobj,
 					&lpg_attr_group);
 				if (rc)
-					goto fail_id_check;
+					goto fail_id_check;*/
+//[Del]-Add-END by TCTSZ. junfeng.zhou.sz@tcl.com, 2015/10/12, for PR716604
 			} else if (led->mpp_cfg->pwm_cfg->mode == LPG_MODE) {
 				rc = sysfs_create_group(&led->cdev.dev->kobj,
 					&lpg_attr_group);
 				if (rc)
 					goto fail_id_check;
 			}
+//add by junfeng.zhou begin
+#if defined(JRD_PROJECT_PIXI3454GSPR) || defined(JRD_PROJECT_PIXI445SPR)
+			if (gpio_is_valid(led->mpp_cfg->gpio_red_num))
+			{
+				rc = sysfs_create_group(&led->cdev.dev->kobj,
+					&red_gpio_attr_group);
+				if (rc)
+					goto fail_id_check;
+			}
+			if (gpio_is_valid(led->mpp_cfg->gpio_green_num))
+			{
+				rc = sysfs_create_group(&led->cdev.dev->kobj,
+					&green_gpio_attr_group);
+				if (rc)
+					goto fail_id_check;
+			}
+#endif
+//add by junfeng.zhou end
 		} else if ((led->id == QPNP_ID_RGB_RED) ||
 			(led->id == QPNP_ID_RGB_GREEN) ||
 			(led->id == QPNP_ID_RGB_BLUE)) {

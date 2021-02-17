@@ -52,6 +52,8 @@
 #define SENSOR_SCALING_FACTOR 1
 #define CPU_DEVICE "cpu%d"
 
+#define THERMAL_USR_THR //[Feature]-Add by TCTSZ.cuiping.shi, 2015/7/23, thermal control
+
 static struct msm_thermal_data msm_thermal_info;
 static struct delayed_work check_temp_work;
 static bool core_control_enabled;
@@ -1911,6 +1913,48 @@ set_threshold_exit:
 	return ret;
 }
 
+#ifdef THERMAL_USR_THR//[Feature]-Add-BEGIN by TCTSZ.cuiping.shi, 2015/7/23, thermal control
+int sensor_mgr_set_threshold_hi_low(uint32_t zone_id,
+	struct sensor_threshold *threshold)
+{
+	int i = 0, ret = 0;
+	if (!threshold) {
+		pr_err("Invalid input\n");
+		ret = -EINVAL;
+		goto set_threshold_exit;
+	}
+	while (i < MAX_THRESHOLD) {
+		switch (threshold[i].trip) {
+		case THERMAL_TRIP_CONFIGURABLE_HI:
+			pr_err("HI zone_id=%d threshold[i].temp=%ld\n",zone_id,threshold[i].temp);
+			{
+				ret = set_and_activate_threshold(zone_id,
+					&threshold[i]);
+				if (ret)
+					goto set_threshold_exit;
+			}
+			break;
+		case THERMAL_TRIP_CONFIGURABLE_LOW:
+			pr_err("LOW zone_id=%d threshold[i].temp=%ld\n",zone_id,threshold[i].temp);
+			{
+				ret = set_and_activate_threshold(zone_id,
+					&threshold[i]);
+				if (ret)
+					goto set_threshold_exit;
+			}
+			break;
+		default:
+			pr_err("zone:%u Invalid trip:%d\n", zone_id,
+					threshold[i].trip);
+			break;
+		}
+		i++;
+	}
+set_threshold_exit:
+	return ret;
+}
+#endif//[Feature]-Add-END by TCTSZ.cuiping.shi, 2015/7/23, thermal control
+
 static int apply_vdd_mx_restriction(void)
 {
 	int ret = 0;
@@ -2022,10 +2066,19 @@ static void vdd_mx_notify(struct therm_threshold *trig_thresh)
 	switch (trig_thresh->trip_triggered) {
 	case THERMAL_TRIP_CONFIGURABLE_LOW:
 		mx_sens_status |= BIT(trig_thresh->sensor_id);
+#ifdef THERMAL_USR_THR//[Feature]-Add-BEGIN by TCTSZ.cuiping.shi, 2015/7/27, thermal control
+		trig_thresh->threshold[0].temp =
+		(msm_thermal_info.vdd_mx_temp_hyst_degC+msm_thermal_info.vdd_mx_temp_degC);//high
+		trig_thresh->threshold[1].temp = -50;//low
+#endif//[Feature]-Add-END by TCTSZ.cuiping.shi, 2015/7/27, thermal control
 		break;
 	case THERMAL_TRIP_CONFIGURABLE_HI:
 		if (mx_sens_status & BIT(trig_thresh->sensor_id))
 			mx_sens_status ^= BIT(trig_thresh->sensor_id);
+#ifdef THERMAL_USR_THR//[Feature]-Add-BEGIN by TCTSZ.cuiping.shi, 2015/7/27, thermal control
+		trig_thresh->threshold[0].temp = 120;//high
+		trig_thresh->threshold[1].temp = msm_thermal_info.vdd_mx_temp_degC;//low
+#endif //[Feature]-Add-END by TCTSZ.cuiping.shi, 2015/7/27, thermal control
 		break;
 	default:
 		pr_err("Unsupported trip type\n");
@@ -2042,8 +2095,13 @@ static void vdd_mx_notify(struct therm_threshold *trig_thresh)
 			pr_err("Failed to remove vdd mx restriction\n");
 	}
 	mutex_unlock(&vdd_mx_mutex);
+#ifdef THERMAL_USR_THR //[Feature]-Change-BEGIN by TCTSZ.cuiping.shi, 2015/7/27, thermal control
+	sensor_mgr_set_threshold_hi_low(trig_thresh->sensor_id,
+					trig_thresh->threshold);
+#else
 	sensor_mgr_set_threshold(trig_thresh->sensor_id,
 					trig_thresh->threshold);
+#endif //[Feature]-Change-END by TCTSZ.cuiping.shi, 2015/7/27, thermal control
 }
 
 static void msm_thermal_bite(int tsens_id, long temp)
@@ -2547,10 +2605,18 @@ static int do_vdd_restriction(void)
 			thresh[MSM_VDD_RESTRICTION].thresh_list[i].sensor_id,
 			temp);
 			goto exit;
+#if 0//[Feature]-Change-BEGIN by TCTSZ.cuiping.shi, 2015/7/23, thermal control
 		} else if (temp > msm_thermal_info.vdd_rstr_temp_hyst_degC)
+#else
+		} else if (temp > (msm_thermal_info.vdd_rstr_temp_hyst_degC+msm_thermal_info.vdd_rstr_temp_degC))
+#endif//[Feature]-Change-END by TCTSZ.cuiping.shi, 2015/7/23, thermal control
 			dis_cnt++;
 	}
+#if 0 //[Feature]-Change-BEGIN by TCTSZ.cuiping.shi, 2015/7/27, thermal control
 	if (dis_cnt == max_tsens_num) {
+#else
+	if (dis_cnt == thresh[MSM_VDD_RESTRICTION].thresh_ct) {
+#endif //[Feature]-Change-END by TCTSZ.cuiping.shi, 2015/7/27, thermal control
 		ret = vdd_restriction_apply_all(0);
 		if (ret) {
 			pr_err("Disable vdd rstr for all failed. err:%d\n",
@@ -3324,9 +3390,18 @@ static void vdd_restriction_notify(struct therm_threshold *trig_thresh)
 	case THERMAL_TRIP_CONFIGURABLE_HI:
 		if (vdd_sens_status & BIT(trig_thresh->sensor_id))
 			vdd_sens_status ^= BIT(trig_thresh->sensor_id);
+#ifdef THERMAL_USR_THR//[Feature]-Add-BEGIN by TCTSZ.cuiping.shi, 2015/7/23, thermal control
+		trig_thresh->threshold[0].temp = 120;//high
+		trig_thresh->threshold[1].temp = msm_thermal_info.vdd_rstr_temp_degC;//low
+#endif//[Feature]-Add-END by TCTSZ.cuiping.shi, 2015/7/23, thermal control
 		break;
 	case THERMAL_TRIP_CONFIGURABLE_LOW:
 		vdd_sens_status |= BIT(trig_thresh->sensor_id);
+#ifdef THERMAL_USR_THR//[Feature]-Add-BEGIN by TCTSZ.cuiping.shi, 2015/7/23, thermal control
+		trig_thresh->threshold[0].temp =
+		(msm_thermal_info.vdd_rstr_temp_hyst_degC+msm_thermal_info.vdd_rstr_temp_degC);//high
+		trig_thresh->threshold[1].temp = -50;//low
+#endif//[Feature]-Add-END by TCTSZ.cuiping.shi, 2015/7/23, thermal control
 		break;
 	default:
 		pr_err("Unsupported trip type\n");
@@ -3345,8 +3420,13 @@ static void vdd_restriction_notify(struct therm_threshold *trig_thresh)
 unlock_and_exit:
 	mutex_unlock(&vdd_rstr_mutex);
 set_and_exit:
+#ifdef THERMAL_USR_THR//[Feature]-Change-BEGIN by TCTSZ.cuiping.shi, 2015/7/23, thermal control
+	sensor_mgr_set_threshold_hi_low(trig_thresh->sensor_id,
+					trig_thresh->threshold);
+#else
 	sensor_mgr_set_threshold(trig_thresh->sensor_id,
 					trig_thresh->threshold);
+#endif//[Feature]-Change-END by TCTSZ.cuiping.shi, 2015/7/23, thermal control
 	return;
 }
 
@@ -4601,6 +4681,7 @@ static int probe_vdd_mx(struct device_node *node,
 {
 	int ret = 0;
 	char *key = NULL;
+	int32_t  sensor_id; //[Feature]-Add by TCTSZ.cuiping.shi, 2015/7/27, thermal control
 
 	key = "qcom,disable-vdd-mx";
 	if (of_property_read_bool(node, key)) {
@@ -4623,6 +4704,14 @@ static int probe_vdd_mx(struct device_node *node,
 	if (ret)
 		goto read_node_done;
 
+//[Feature]-Add-BEGIN by TCTSZ.cuiping.shi, 2015/7/27, thermal control
+	key = "qcom,mx-sensor-id";
+	ret = of_property_read_u32(node, key,
+			&sensor_id);
+	if (ret)
+		sensor_id=MONITOR_ALL_TSENS;
+//[Feature]-Add-END by TCTSZ.cuiping.shi, 2015/7/27, thermal control
+
 	vdd_mx = devm_regulator_get(&pdev->dev, "vdd-mx");
 	if (IS_ERR_OR_NULL(vdd_mx)) {
 		ret = PTR_ERR(vdd_mx);
@@ -4635,7 +4724,11 @@ static int probe_vdd_mx(struct device_node *node,
 
 	ret = sensor_mgr_init_threshold(&pdev->dev,
 			&thresh[MSM_VDD_MX_RESTRICTION],
+#if 0 //[Feature]-Change-BEGIN by TCTSZ.cuiping.shi, 2015/7/27, thermal control
 			MONITOR_ALL_TSENS,
+#else
+			sensor_id,
+#endif //[Feature]-Change-END by TCTSZ.cuiping.shi, 2015/7/27, thermal control
 			data->vdd_mx_temp_degC + data->vdd_mx_temp_hyst_degC,
 			data->vdd_mx_temp_degC, vdd_mx_notify);
 
@@ -4658,6 +4751,7 @@ static int probe_vdd_rstr(struct device_node *node,
 	int arr_size;
 	char *key = NULL;
 	struct device_node *child_node = NULL;
+	int32_t  sensor_id; //[Feature]-Add by TCTSZ.cuiping.shi, 2015/7/23, thermal control
 
 	rails = NULL;
 
@@ -4678,6 +4772,14 @@ static int probe_vdd_rstr(struct device_node *node,
 	ret = of_property_read_u32(node, key, &data->vdd_rstr_temp_hyst_degC);
 	if (ret)
 		goto read_node_fail;
+
+//[Feature]-Add-BEGIN by TCTSZ.cuiping.shi, 2015/7/23, thermal control
+	key = "qcom,vdd-restriction-sensor-id";
+	ret = of_property_read_u32(node, key,
+			&sensor_id);
+	if (ret)
+		sensor_id=MONITOR_ALL_TSENS;
+//[Feature]-Add-END by TCTSZ.cuiping.shi, 2015/7/23, thermal control
 
 	for_each_child_of_node(node, child_node) {
 		rails_cnt++;
@@ -4745,8 +4847,13 @@ static int probe_vdd_rstr(struct device_node *node,
 		}
 		ret = sensor_mgr_init_threshold(&pdev->dev,
 			&thresh[MSM_VDD_RESTRICTION],
+#if 0//[Feature]-Change-BEGIN by TCTSZ.cuiping.shi, 2015/7/23, thermal control
 			MONITOR_ALL_TSENS,
 			data->vdd_rstr_temp_hyst_degC, data->vdd_rstr_temp_degC,
+#else
+			sensor_id/*MONITOR_ALL_TSENS*/,
+			(data->vdd_rstr_temp_hyst_degC+data->vdd_rstr_temp_degC), data->vdd_rstr_temp_degC,
+#endif//[Feature]-Change-END by TCTSZ.cuiping.shi, 2015/7/23, thermal control
 			vdd_restriction_notify);
 		if (ret) {
 			pr_err("Error in initializing thresholds. err:%d\n",

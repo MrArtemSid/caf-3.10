@@ -90,6 +90,11 @@ enum dsi_panel_bl_ctrl {
 	BL_PWM,
 	BL_WLED,
 	BL_DCS_CMD,
+/* [Platform]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2015/12/17, pixi464g doesn', need BL ctrl gpio*/
+#if (!defined(JRD_PROJECT_PIXI464G)) && (!defined(JRD_PROJECT_PIXI464GCRICKET))
+	BL_GPIO_CMD,//cwying add  2015.1.28
+#endif
+/* [Platform]-Mod-BEGIN by TCTSZ.yaohui.zeng*/
 	UNKNOWN_CTRL,
 };
 
@@ -346,6 +351,11 @@ struct mdss_dsi_ctrl_pdata {
 	bool pwm_pmi;
 	int pwm_period;
 	int pwm_pmic_gpio;
+/* [Platform]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2015/12/17, pixi464g doesn', need BL ctrl gpio*/
+#if (!defined(JRD_PROJECT_PIXI464G)) && (!defined(JRD_PROJECT_PIXI464GCRICKET))
+	int bkl_ctrl_gpio;/*cwying 2014.12.23 add */
+#endif
+/* [Platform]-Mod-BEGIN by TCTSZ.yaohui.zeng*/
 	int pwm_lpg_chan;
 	int bklt_max;
 	int new_fps;

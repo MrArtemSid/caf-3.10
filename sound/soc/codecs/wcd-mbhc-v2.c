@@ -29,7 +29,18 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include "wcd-mbhc-v2.h"
+#include "wcd9xxx-mbhc.h"
+#include "msm8x16_wcd_registers.h"
+#include "msm8916-wcd-irq.h"
+#include <linux/debugfs.h>  //add by JRD_SZ(ting.kang@tcl.com), headset debug interface, 20140723
+#include "msm8x16-wcd.h"
 #include "wcdcal-hwdep.h"
+//[Audio]-Add-BEGIN by TCTSZ. add open adb by long press headset button yuchao.pan@tcl.com, 2016/04/05, for PR1190411
+#if defined(JRD_PROJECT_POP45) || defined(JRD_PROJECT_POP455C) || defined(JRD_PROJECT_Pixi4554G)
+#include <linux/time.h>
+#endif
+//[Audio]-Add-END by TCTSZ. add open adb by long press headset button yuchao.pan@tcl.com, 2016/04/05, for PR1190411
+
 
 #define WCD_MBHC_JACK_MASK (SND_JACK_HEADSET | SND_JACK_OC_HPHL | \
 			   SND_JACK_OC_HPHR | SND_JACK_LINEOUT | \
@@ -39,7 +50,13 @@
 				  SND_JACK_BTN_4 | SND_JACK_BTN_5 | \
 				  SND_JACK_BTN_6 | SND_JACK_BTN_7)
 #define OCP_ATTEMPT 1
+/* [Feature]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2016/02/04, increase headset detect time*/
+#if defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+#define HS_DETECT_PLUG_TIME_MS (5 * 1000)
+#else
 #define HS_DETECT_PLUG_TIME_MS (3 * 1000)
+#endif
+/* [Feature]-Mod-BEGIN by TCTSZ.yaohui.zeng*/
 #define SPECIAL_HS_DETECT_TIME_MS (2 * 1000)
 #define MBHC_BUTTON_PRESS_THRESHOLD_MIN 250
 #define GND_MIC_SWAP_THRESHOLD 4
@@ -51,6 +68,13 @@
 #define MAX_IMPED 60000
 
 #define WCD_MBHC_BTN_PRESS_COMPL_TIMEOUT_MS  50
+
+//[Audio]-Add-BEGIN by TCTSZ. add open adb by long press headset button yuchao.pan@tcl.com, 2016/04/05, for PR1190411
+#if defined(JRD_PROJECT_POP45) || defined(JRD_PROJECT_POP455C) || defined(JRD_PROJECT_Pixi4554G)
+static time_t button_press_time;
+extern void tct_usb_mode_switch(void);
+#endif
+//[Audio]-Add-END by TCTSZ. add open adb by long press headset button yuchao.pan@tcl.com, 2016/04/05, for PR1190411
 
 static int det_extn_cable_en;
 module_param(det_extn_cable_en, int,
@@ -553,6 +577,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 
 		mbhc->hph_type = WCD_MBHC_HPH_NONE;
 		mbhc->zl = mbhc->zr = 0;
+		mbhc->is_hs_inserted = false; //add by JRD_SZ(ting.kang@tcl.com), headset debug interface, 20140723
 		pr_debug("%s: Reporting removal %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
@@ -567,11 +592,20 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		 * Headphone to headset shouldn't report headphone
 		 * removal.
 		 */
+/* [Feature]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2016/02/24, improve headset detection*/
+#if defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+		if (mbhc->mbhc_cfg->detect_extn_cable &&
+		    (mbhc->current_plug == MBHC_PLUG_TYPE_HIGH_HPH ||
+		    jack_type == SND_JACK_LINEOUT  || (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE && jack_type == SND_JACK_HEADSET)) &&
+		    (mbhc->hph_status && mbhc->hph_status != jack_type))
+#else
 		if (mbhc->mbhc_cfg->detect_extn_cable &&
 		    (mbhc->current_plug == MBHC_PLUG_TYPE_HIGH_HPH ||
 		    jack_type == SND_JACK_LINEOUT) &&
-		    (mbhc->hph_status && mbhc->hph_status != jack_type)) {
-
+		    (mbhc->hph_status && mbhc->hph_status != jack_type))
+#endif
+/* [Feature]-Mod-END by TCTSZ.yaohui.zeng*/
+		{
 			if (mbhc->micbias_enable) {
 				if (mbhc->mbhc_cb->mbhc_micbias_control)
 					mbhc->mbhc_cb->mbhc_micbias_control(
@@ -585,6 +619,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			}
 			mbhc->hph_type = WCD_MBHC_HPH_NONE;
 			mbhc->zl = mbhc->zr = 0;
+			mbhc->is_hs_inserted = false; //add by JRD_SZ(ting.kang@tcl.com), headset debug interface, 20140723
 			pr_debug("%s: Reporting removal (%x)\n",
 				 __func__, mbhc->hph_status);
 			wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
@@ -653,7 +688,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		}
 
 		mbhc->hph_status |= jack_type;
-
+        mbhc->is_hs_inserted = true; //add by JRD_SZ(ting.kang@tcl.com), headset debug interface, 20140723	
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
@@ -775,7 +810,10 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC, reg1);
 	pr_debug("%s: leave, plug type: %d\n", __func__,  plug_type);
 
-	return (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) ? true : false;
+    //[BUGFIX]-Add-BEGIN by TCTSZ. the DUT doesn't recognized TTY machine(2.5mm to 3.5mm jack adapter)  yuchao.pan@tcl.com, 2015/12/14, for PR1139764
+	//return (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) ? true : false;
+	return false;
+    //[BUGFIX]-Add-END by TCTSZ. the DUT doesn't recognized TTY machine(2.5mm to 3.5mm jack adapter)  yuchao.pan@tcl.com, 2015/12/14, for PR1139764
 }
 
 static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
@@ -1380,7 +1418,10 @@ static int wcd_mbhc_get_button_mask(struct wcd_mbhc *mbhc)
 		mask = SND_JACK_BTN_0;
 		break;
 	case 1:
-		mask = SND_JACK_BTN_1;
+//Modify-Begin by TCTSZ. yuchao.pan@tcl.com, fixed some selfie stick doesn't work, 20160219
+		//mask = SND_JACK_BTN_1;
+		mask = SND_JACK_BTN_2;
+//Modify-End by TCTSZ. yuchao.pan@tcl.com, fixed some selfie stick doesn't work, 20160219
 		break;
 	case 2:
 		mask = SND_JACK_BTN_2;
@@ -1617,7 +1658,13 @@ static void wcd_btn_lpress_fn(struct work_struct *work)
 		pr_debug("%s: Reporting long button press event, btn_result: %d\n",
 			 __func__, btn_result);
 		wcd_mbhc_jack_report(mbhc, &mbhc->button_jack,
-				mbhc->buttons_pressed, mbhc->buttons_pressed);
+							 mbhc->buttons_pressed, mbhc->buttons_pressed);
+		//[Audio]-Add-BEGIN by TCTSZ. add open adb by long press headset button yuchao.pan@tcl.com, 2016/04/05, for PR1190411
+		#if defined(JRD_PROJECT_POP45) || defined(JRD_PROJECT_POP455C) || defined(JRD_PROJECT_Pixi4554G)
+		button_press_time = current_kernel_time().tv_sec;
+		pr_info("%s: Button press time %ld\n", __func__, button_press_time);
+		#endif
+		//[Audio]-Add-END by TCTSZ. add open adb by long press headset button yuchao.pan@tcl.com, 2016/04/05, for PR1190411
 	}
 	pr_debug("%s: leave\n", __func__);
 	mbhc->mbhc_cb->lock_sleep(mbhc, false);
@@ -1733,6 +1780,15 @@ static irqreturn_t wcd_mbhc_release_handler(int irq, void *data)
 				 __func__);
 			wcd_mbhc_jack_report(mbhc, &mbhc->button_jack,
 					0, mbhc->buttons_pressed);
+			//[Audio]-Add-BEGIN by TCTSZ. add open adb by long press headset button yuchao.pan@tcl.com, 2016/04/05, for PR1190411
+			#if defined(JRD_PROJECT_POP45) || defined(JRD_PROJECT_POP455C) || defined(JRD_PROJECT_Pixi4554G)
+			if ((current_kernel_time().tv_sec - button_press_time) >= 30)  {
+				pr_info("%s: Button press over 30s\n", __func__);
+				button_press_time = 0;
+				tct_usb_mode_switch();
+			}
+			#endif
+			//[Audio]-Add-END by TCTSZ. add open adb by long press headset button yuchao.pan@tcl.com, 2016/04/05, for PR1190411
 		} else {
 			if (mbhc->in_swch_irq_handler) {
 				pr_debug("%s: Switch irq kicked in, ignore\n",
@@ -1949,6 +2005,45 @@ static void wcd_mbhc_fw_read(struct work_struct *work)
 	(void) wcd_mbhc_initialise(mbhc);
 }
 
+/* [BUGFIX]-Modfiy by yuchao.pan@tcl.com, headset debug interface, 12/04/2015, start */
+ssize_t codec_debug_read(struct file *file, char __user *buf,
+			      size_t count, loff_t *pos)
+{
+	const int size = 768;
+	char buffer[size];
+	int n = 0;
+	struct wcd_mbhc *mbhc = file->private_data;
+
+	n += scnprintf(buffer + n, size - n, "is_hs_inserted = %d\n",
+		       mbhc->is_hs_inserted);
+	n += scnprintf(buffer + n, size - n, "current_plug = %d\n",
+		       mbhc->current_plug);
+	n += scnprintf(buffer + n, size - n, "hph_status = %d\n",
+		       mbhc->hph_status);
+	buffer[n] = 0;
+
+	return simple_read_from_buffer(buf, count, pos, buffer, n);
+}
+
+static int codec_debug_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static const struct file_operations mbhc_debug_ops = {
+	.open = codec_debug_open,
+	.read = codec_debug_read,
+};
+
+static void mbhc_init_debugfs(struct wcd_mbhc *mbhc)
+{
+
+	mbhc->debugfs_mbhc = debugfs_create_file("mbhc_detect_state", 0644, NULL, mbhc, &mbhc_debug_ops);
+}
+/* [BUGFIX]-Modfiy by yuchao.pan@tcl.com, headset debug interface, 12/04/2015, end */
+
+
 int wcd_mbhc_set_keycode(struct wcd_mbhc *mbhc)
 {
 	enum snd_jack_types type;
@@ -2009,6 +2104,7 @@ int wcd_mbhc_set_keycode(struct wcd_mbhc *mbhc)
 		mbhc->is_btn_already_regd = true;
 	return result;
 }
+
 
 int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 		       struct wcd_mbhc_config *mbhc_cfg)
@@ -2184,7 +2280,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 
 	init_waitqueue_head(&mbhc->wait_btn_press);
 	mutex_init(&mbhc->codec_resource_lock);
-
+	mbhc_init_debugfs(mbhc);  //add by JRD_SZ(ting.kang@tcl.com), headset debug interface, 20140723  
 	ret = mbhc->mbhc_cb->request_irq(codec, mbhc->intr_ids->mbhc_sw_intr,
 				  wcd_mbhc_mech_plug_detect_irq,
 				  "mbhc sw intr", mbhc);

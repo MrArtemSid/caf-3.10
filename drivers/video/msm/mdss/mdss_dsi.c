@@ -31,6 +31,17 @@
 
 #define XO_CLK_RATE	19200000
 
+/* [Platform]-Add-BEGIN by TCTSZ.yaohui.zeng, 2015/12/17, add LCD r61318 for pixi464g*/
+#if defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+static int lcd_bias_enp,lcd_bias_enn;
+/* [feature]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2016/02/04, modify panel sleep sequence to reduce power*/
+extern bool is_fb_shutting_down;
+extern int panel_id;
+/* [feature]-Mod-BEGIN by TCTSZ.yaohui.zeng*/
+
+#endif
+/* [Platform]-Add-END by TCTSZ.yaohui.zeng*/
+
 static int mdss_dsi_pinctrl_set_state(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 					bool active);
 
@@ -85,14 +96,84 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
+/* [Platform]-Add-BEGIN by TCTSZ.yaohui.zeng, 2015/12/17, add LCD r61318 for pixi464g*/
+#if defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+	/* [feature]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2016/03/01, modify panel sleep sequence to reduce power*/
+	//if(panel_id==1 && is_fb_shutting_down) {
+	if(panel_id==1) {
+		ret = mdss_dsi_panel_reset(pdata, 0);
+		if (ret) {
+			pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
+			ret = 0;
+		}
+	}
+	/* [feature]-Mod-BEGIN by TCTSZ.yaohui.zeng*/
+
+	if (gpio_is_valid(lcd_bias_enp)){
+		ret = gpio_request(lcd_bias_enp,"lcd_bias_enp_enable");
+		if (ret) {
+					pr_err("request lcd_bias_enp gpio failed, ret=%d\n",ret);
+				}
+		}
+		if (gpio_is_valid(lcd_bias_enn)){
+		ret = gpio_request(lcd_bias_enn,"lcd_bias_enn_enable");
+		if (ret) {
+					pr_err("request lcd_bias_enn gpio failed, ret=%d\n",ret);
+				}
+		}
+
+		if (gpio_is_valid(lcd_bias_enn)){
+			gpio_direction_output(lcd_bias_enn,0);
+			gpio_free(lcd_bias_enn);
+		}
+		mdelay(5);
+		if (gpio_is_valid(lcd_bias_enp)){
+			gpio_direction_output(lcd_bias_enp,0);
+			gpio_free(lcd_bias_enp);
+		}
+		mdelay(5);
+#endif
+/* [Platform]-mod-END by TCTSZ.yaohui.zeng*/
+
+#if defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+	/* [feature]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2016/02/04, modify panel sleep sequence to reduce power*/
+	if(panel_id==0 && is_fb_shutting_down) {
+	/* [feature]-Mod-END by TCTSZ.yaohui.zeng*/
+		ret = mdss_dsi_panel_reset(pdata, 0);
+		if (ret) {
+			pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
+			ret = 0;
+		}
+	}
+#else
 	ret = mdss_dsi_panel_reset(pdata, 0);
 	if (ret) {
 		pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
 		ret = 0;
 	}
+#endif
+/* [feature]-Mod-BEGIN by TCTSZ.yaohui.zeng*/
+	#if 0
+//[Feature]-Add-BEGIN by TCTSZ. lcd 8394D bring up . yusen.ke.sz@tcl.com, 2015/6/19, for PR364368 
 
+	if (gpio_is_valid(ctrl_pdata->rst_gpio)){
+	    ret = gpio_request(ctrl_pdata->rst_gpio, "lcd_reset_gpio");
+	    if (ret) {
+			pr_err("request lcd reset gpio failed, ret=%d\n",ret);
+	     }
+            gpio_set_value((ctrl_pdata->rst_gpio), 0);
+            msleep(5);
+            gpio_set_value((ctrl_pdata->rst_gpio), 1);
+            gpio_free(ctrl_pdata->rst_gpio);		
+	  }
+//[Feature]-Add-END by TCTSZ. yusen.ke.sz@tcl.com, 2015/6/19, for PR364368	
+	#endif
+//[feature]-ADD-BEGIN by BKL bring up wanying.chen@tcl.com,2015/6/24
+#ifdef JRD_PROJECT_PIXI3554GEVDO
 	if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
 		pr_debug("reset disable: pinctrl not enabled\n");
+#endif
+//[feature]-ADD-end by BKL bring up wanying.chen@tcl.com,2015/6/24
 
 	if (ctrl_pdata->panel_bias_vreg) {
 		pr_debug("%s: Disabling panel bias vreg. ndx = %d\n",
@@ -163,22 +244,67 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 
 	i--;
 
+/* [Platform]-Add-BEGIN by TCTSZ.yaohui.zeng, 2015/12/17, add LCD r61318 for pixi464g*/
+#if defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+	if (!pdata->panel_info.cont_splash_enabled){
+		if (gpio_is_valid(lcd_bias_enp)){
+			ret = gpio_request(lcd_bias_enp,"lcd_bias_enp_enable");
+			if (ret) {
+						pr_err("request lcd_bias_enp gpio failed, ret=%d\n",ret);
+					}
+			}
+		if (gpio_is_valid(lcd_bias_enn)){
+			ret = gpio_request(lcd_bias_enn,"lcd_bias_enn_enable");
+			if (ret) {
+						pr_err("request lcd_bias_enn gpio failed, ret=%d\n",ret);
+					}
+			}
+
+		gpio_direction_output(lcd_bias_enp,1);
+		mdelay(5);
+		gpio_direction_output(lcd_bias_enn,1);
+		mdelay(5);
+		gpio_free(lcd_bias_enp);
+		gpio_free(lcd_bias_enn);
+	}
+#endif
+/* [Platform]-Add-END by TCTSZ.yaohui.zeng*/
+
 	/*
 	 * If continuous splash screen feature is enabled, then we need to
 	 * request all the GPIOs that have already been configured in the
 	 * bootloader. This needs to be done irresepective of whether
 	 * the lp11_init flag is set or not.
 	 */
+
+/* [Platform]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2015/12/17, modify display LP11 and RST for pixi464g*/
+#if (!defined(JRD_PROJECT_PIXI464G)) && (!defined(JRD_PROJECT_PIXI464GCRICKET))
 	if (pdata->panel_info.cont_splash_enabled ||
 		!pdata->panel_info.mipi.lp11_init) {
+	//[feature]-ADD-BEGIN by BKL bring up wanying.chen@tcl.com,2015/6/24
+	#ifdef JRD_PROJECT_PIXI3554GEVDO
 		if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
 			pr_debug("reset enable: pinctrl not enabled\n");
+	#endif
+	//[feature]-ADD-end by BKL bring up wanying.chen@tcl.com,2015/6/24
 
 		ret = mdss_dsi_panel_reset(pdata, 1);
 		if (ret)
 			pr_err("%s: Panel reset failed. rc=%d\n",
 					__func__, ret);
 	}
+
+#else
+	if (!pdata->panel_info.cont_splash_enabled &&
+		!pdata->panel_info.mipi.lp11_init) {
+
+		ret = mdss_dsi_panel_reset(pdata, 1);
+		if (ret)
+			pr_err("%s: Panel reset failed. rc=%d\n",
+				__func__, ret);
+	}
+#endif
+/* [Platform]-Mod-BEGIN by TCTSZ.yaohui.zeng*/
 
 error:
 	if (ret) {
@@ -609,14 +735,33 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	 * Issue hardware reset line after enabling the DSI clocks and data
 	 * data lanes for LP11 init
 	 */
+
+/* [Platform]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2015/12/17, modify display LP11 and RST for pixi464g*/
+#if (!defined(JRD_PROJECT_PIXI464G)) && (!defined(JRD_PROJECT_PIXI464GCRICKET))
 	if (mipi->lp11_init) {
+		//[feature]-ADD-BEGIN by BKL bring up wanying.chen@tcl.com,2015/6/24
+		#ifdef JRD_PROJECT_PIXI3554GEVDO
 		if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
 			pr_debug("reset enable: pinctrl not enabled\n");
+		#endif
+		//[feature]-ADD-BEGIN by BKL bring up wanying.chen@tcl.com,2015/6/24
 		mdss_dsi_panel_reset(pdata, 1);
 	}
 
 	if (mipi->init_delay)
 		usleep(mipi->init_delay);
+#else
+	if (mipi->init_delay)
+		usleep(mipi->init_delay);
+
+	if (!pdata->panel_info.cont_splash_enabled && mipi->lp11_init) {
+		if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
+			pr_debug("reset enable: pinctrl not enabled\n");
+		mdss_dsi_panel_reset(pdata, 1);
+	}
+
+#endif
+/* [Platform]-Mod-END by TCTSZ.yaohui.zeng*/
 
 	if (mipi->force_clk_lane_hs) {
 		u32 tmp;
@@ -687,7 +832,58 @@ static int mdss_dsi_pinctrl_init(struct platform_device *pdev)
 
 	return 0;
 }
+//[Feature]-Add-BEGIN by TCTSZ. lcd 8394F bring up . yusen.ke.sz@tcl.com, 2016/1/26, for PR364368 
+#if defined ( JRD_PROJECT_PIXI3554GEVDO) || defined (JRD_PROJECT_POP455C)||defined (JRD_PROJECT_GOPLAY2) || defined (JRD_PROJECT_POP455CTMO)
+#include <linux/i2c.h>
 
+#define LCD_TPS65132_I2C_ADDRESS		       0x3E
+#define LCD_TPS65132_VPOS_ADDRESS		0x00
+#define LCD_TPS65132_VNEG_ADDRESS		0x01
+#define LCD_TPS65132_DIS_ADDRESS		       0x03
+#define LCD_TPS65132_CONTROL_ADDRESS       0xFF
+
+extern struct i2c_client *lcd_client;
+static int lcd_tps65132_i2c_write(u8 addr, u8 val)
+{
+	int ret = 0;
+	struct i2c_msg msg;
+	u8 data_buf[] = {addr,val};
+	
+       msg.flags = !I2C_M_RD;
+       msg.addr  = LCD_TPS65132_I2C_ADDRESS;
+       msg.len   = 2;
+       msg.buf   = data_buf;
+
+	ret = i2c_transfer(lcd_client->adapter, &msg, 1);
+	
+	if(ret < 0) {
+		pr_err( "i2c transfer  error %d\n", ret);
+		return ret;
+	}
+	return 0;
+}
+static void lcd_tps65132_init(void)
+{
+	int ret = 0;
+	ret = lcd_tps65132_i2c_write(LCD_TPS65132_VPOS_ADDRESS, 0x0F); /* modify VPOS address 0x0F output 5.5V By BaoChangSheng*/
+	if (ret) {
+		printk("VPOS Register: I2C Write failure\n");
+	}
+	ret = lcd_tps65132_i2c_write(LCD_TPS65132_VNEG_ADDRESS, 0x0F); /* modify VNEG address 0x0F output -5.5V By BaoChangSheng*/
+	if (ret) {
+		printk("VNEG Register: I2C write failure\n");
+	}
+	ret = lcd_tps65132_i2c_write(LCD_TPS65132_DIS_ADDRESS, 0x03);//0F //Mmodify by yusen.ke.sz@tcl.com for 2nd bias voltage(ktd2151)
+	if (ret) {
+		pr_err("Apps freq DIS Register: I2C write failure\n");
+	}
+       ret = lcd_tps65132_i2c_write(LCD_TPS65132_CONTROL_ADDRESS, 0xF0);
+	if (ret) {
+		pr_err("Control Register: I2C write failure\n");
+	}
+}
+#endif
+//[Feature]-Add-END by TCTSZ. yusen.ke.sz@tcl.com, 2015/6/19, for PR364368
 static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
@@ -698,7 +894,6 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
-
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 	mipi  = &pdata->panel_info.mipi;
@@ -714,6 +909,11 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 			ret = ctrl_pdata->low_power_config(pdata, false);
 		goto error;
 	}
+//[Feature]-Add-BEGIN by TCTSZ. lcd 8394F bring up . yusen.ke.sz@tcl.com, 2016/1/26, for PR364368 
+#if defined ( JRD_PROJECT_PIXI3554GEVDO) || defined (JRD_PROJECT_POP455C)||defined (JRD_PROJECT_GOPLAY2) || defined (JRD_PROJECT_POP455CTMO)
+	lcd_tps65132_init(); 
+#endif
+//[Feature]-Add-BEGIN by TCTSZ.yusen.ke.sz@tcl.com, 2015/6/19, for PR364368 
 
 	if (!(ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT)) {
 		if (!pdata->panel_info.dynamic_switch_pending) {
@@ -726,6 +926,17 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 		}
 		ctrl_pdata->ctrl_state |= CTRL_STATE_PANEL_INIT;
 	}
+//[Feature]-Add-BEGIN by TCTSZ. lcd 8394F bring up . yusen.ke.sz@tcl.com, 2016/1/26, for PR364368 
+/*[Feature]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2016/01/12, use TE ESD for pixi464g */
+#if defined ( JRD_PROJECT_PIXI3554GEVDO) || defined (JRD_PROJECT_POP455C)||defined (JRD_PROJECT_GOPLAY2) || defined (JRD_PROJECT_POP455CTMO) || defined (JRD_PROJECT_PIXI445CRICKET) || defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+/*[Feature]-Mod-END by TCTSZ.yaohui.zeng, 2016/01/12 */
+	mdss_dsi_set_tear_on(ctrl_pdata);
+	if (mdss_dsi_is_te_based_esd(ctrl_pdata)){
+		enable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
+		//printk(KERN_NOTICE "=========== richard: enable TE irq\n");
+	}
+#else
+//[Feature]-Add-BEGIN by TCTSZ. yusen.ke.sz@tcl.com, 2015/6/19, for PR364368 
 
 	if ((pdata->panel_info.type == MIPI_CMD_PANEL) &&
 		mipi->vsync_enable && mipi->hw_vsync_mode) {
@@ -733,6 +944,7 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 		if (mdss_dsi_is_te_based_esd(ctrl_pdata))
 			enable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
 	}
+#endif//[Feature]-Add-BEGIN by TCTSZ. lcd 8394D bring up . yusen.ke.sz@tcl.com, 2015/6/19, for PR364368 
 
 error:
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
@@ -786,6 +998,20 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata, int power_state)
 			mdss_dsi_set_tear_off(ctrl_pdata);
 		}
 	}
+//[Feature]-Add-BEGIN by TCTSZ. lcd 8394F bring up . yusen.ke.sz@tcl.com, 2016/1/26, for PR364368 
+
+#if defined ( JRD_PROJECT_PIXI3554GEVDO) || defined (JRD_PROJECT_POP455C)||defined (JRD_PROJECT_GOPLAY2) || defined (JRD_PROJECT_POP455CTMO) || defined (JRD_PROJECT_PIXI445CRICKET) || defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+      
+	if (mdss_dsi_is_te_based_esd(ctrl_pdata)) {
+			disable_irq(gpio_to_irq(
+				ctrl_pdata->disp_te_gpio));
+			atomic_dec(&ctrl_pdata->te_irq_ready);
+			//printk(KERN_NOTICE "=========== richard: disable TE irq\n");
+	}
+	mdss_dsi_set_tear_off(ctrl_pdata);
+
+#else
+//[Feature]-Add-BEGIN by TCTSZ. yusen.ke.sz@tcl.com, 2015/6/19, for PR364368 
 
 	if ((pdata->panel_info.type == MIPI_CMD_PANEL) &&
 		mipi->vsync_enable && mipi->hw_vsync_mode) {
@@ -796,6 +1022,7 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata, int power_state)
 		}
 		mdss_dsi_set_tear_off(ctrl_pdata);
 	}
+#endif//[Feature]-Add-BEGIN by TCTSZ. lcd 8394D bring up . yusen.ke.sz@tcl.com, 2015/6/19, for PR364368 
 
 	if (ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT) {
 		if (!pdata->panel_info.dynamic_switch_pending) {
@@ -1451,6 +1678,32 @@ end:
 	return dsi_pan_node;
 }
 
+/* [Platform]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2015/12/17, pixi464g doesn', need BL ctrl gpio*/
+#if (!defined(JRD_PROJECT_PIXI464G)) && (!defined(JRD_PROJECT_PIXI464GCRICKET))
+//[feature]-ADD-BEGIN by BKL bring up wanying.chen@tcl.com,2015/6/24
+
+static int mdss_dsi_blk_ctrl_gpio_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	int rc = 0;
+
+	if (gpio_is_valid(ctrl_pdata->bkl_ctrl_gpio)) {
+		rc = gpio_request(ctrl_pdata->bkl_ctrl_gpio,
+						"blk_ctrl_enable");
+		if (rc) {
+			pr_err("request blk_ctrl_gpio failed, rc=%d\n",
+					   rc);
+			goto blk_ctrl_gpio_err;
+		}
+	}
+	
+blk_ctrl_gpio_err:
+	return rc;
+}
+
+//[feature]-ADD-end by BKL bring up wanying.chen@tcl.com,2015/6/24
+#endif
+/* [Platform]-Mod-END by TCTSZ.yaohui.zeng*/
+
 static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 {
 	int rc = 0, i = 0;
@@ -1584,11 +1837,29 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		pr_err("%s: dsi panel dev reg failed\n", __func__);
 		goto error_pan_node;
 	}
-
 	ctrl_pdata->cmd_clk_ln_recovery_en =
 		of_property_read_bool(pdev->dev.of_node,
 			"qcom,dsi-clk-ln-recovery");
 
+//[Feature]-Add-BEGIN by TCTSZ. lcd 8394F bring up . yusen.ke.sz@tcl.com, 2016/1/26, for PR364368 
+/*[Feature]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2016/01/12, use TE ESD for pixi464g */
+#if defined ( JRD_PROJECT_PIXI3554GEVDO) || defined (JRD_PROJECT_POP455C)||defined (JRD_PROJECT_GOPLAY2) || defined (JRD_PROJECT_POP455CTMO) || defined (JRD_PROJECT_PIXI445CRICKET)|| defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+/*[Feature]-Mod-END by TCTSZ.yaohui.zeng, 2016/01/12 */
+
+	if (mdss_dsi_is_te_based_esd(ctrl_pdata)) {
+		rc = devm_request_irq(&pdev->dev,
+			gpio_to_irq(ctrl_pdata->disp_te_gpio),
+			hw_vsync_handler, IRQF_TRIGGER_FALLING,
+			"TE_GPIO", ctrl_pdata);
+		if (rc) {
+			pr_err("TE request_irq failed.\n");
+			goto error_pan_node;
+		}
+		disable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
+		printk(KERN_NOTICE "=========== richard: register TE irq success\n");
+	}
+#else
+//[Feature]-Add-BEGIN by TCTSZ. yusen.ke.sz@tcl.com, 2015/6/19, for PR364368 
 	if (mdss_dsi_is_te_based_esd(ctrl_pdata)) {
 		rc = devm_request_irq(&pdev->dev,
 			gpio_to_irq(ctrl_pdata->disp_te_gpio),
@@ -1600,6 +1871,22 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		}
 		disable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
 	}
+#endif	//[Feature]-Add-BEGIN by TCTSZ. lcd 8394D bring up . yusen.ke.sz@tcl.com, 2015/6/19, for PR364368 
+
+/* [Platform]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2015/12/17, pixi464g doesn', need BL ctrl gpio*/
+#if (!defined(JRD_PROJECT_PIXI464G)) && (!defined(JRD_PROJECT_PIXI464GCRICKET))
+//[feature]-ADD-BEGIN by BKL bring up wanying.chen@tcl.com,2015/6/24
+	
+	rc = mdss_dsi_blk_ctrl_gpio_request(ctrl_pdata);
+	if (rc) {
+		pr_err("%s: cwying blk_ctrl_gpio_request failed\n", __func__);
+		goto error_pan_node;
+	}
+	
+//[feature]-ADD-end by BKL bring up wanying.chen@tcl.com,2015/6/24
+#endif
+/* [Platform]-Mod-END by TCTSZ.yaohui.zeng*/
+
 	pr_debug("%s: Dsi Ctrl->%d initialized\n", __func__, index);
 	return 0;
 
@@ -1875,11 +2162,44 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	if (!gpio_is_valid(ctrl_pdata->bklt_en_gpio))
 		pr_info("%s: bklt_en gpio not specified\n", __func__);
 
+/* [Platform]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2015/12/17, pixi464g doesn', need BL ctrl gpio*/
+#if (!defined(JRD_PROJECT_PIXI464G)) && (!defined(JRD_PROJECT_PIXI464GCRICKET))
+	//[feature]-ADD-BEGIN by BKL bring up wanying.chen@tcl.com,2015/6/24
+	
+	ctrl_pdata->bkl_ctrl_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+		"qcom,platform-blk-ctrl-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->bkl_ctrl_gpio))
+		pr_err("%s %d: bklt_en gpio not specified\n", __func__,ctrl_pdata->bkl_ctrl_gpio);
+	else
+		pr_err("%s %d:cwying  bklt_en gpio succes\n", __func__,ctrl_pdata->bkl_ctrl_gpio);
+	
+	//[feature]-ADD-end by BKL bring up wanying.chen@tcl.com,2015/6/24
+#endif
+/* [Platform]-Mod-END by TCTSZ.yaohui.zeng*/
+
 	ctrl_pdata->rst_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 			 "qcom,platform-reset-gpio", 0);
 	if (!gpio_is_valid(ctrl_pdata->rst_gpio))
 		pr_err("%s:%d, reset gpio not specified\n",
 						__func__, __LINE__);
+
+/* [Platform]-Add-BEGIN by TCTSZ.yaohui.zeng, 2015/12/17, add LCD r61318 for pixi464g*/
+#if defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+	pr_err("get lcd_bias_enp gpio \n");
+	lcd_bias_enp = of_get_named_gpio(ctrl_pdev->dev.of_node,
+			"qcom,platform-bias-enp-gpio", 0);
+	if (!gpio_is_valid(lcd_bias_enp))
+			pr_err("%s:%d, lcd_bias_enp gpio not specified\n",
+						__func__, __LINE__);
+
+	pr_err("get lcd_bias_enn gpio \n");
+	lcd_bias_enn = of_get_named_gpio(ctrl_pdev->dev.of_node,
+			"qcom,platform-bias-enn-gpio", 0);
+	if (!gpio_is_valid(lcd_bias_enn))
+			pr_err("%s:%d, lcd_bias_enn gpio not specified\n",
+						__func__, __LINE__);
+#endif
+/* [Platform]-Mod-END by TCTSZ.yaohui.zeng*/
 
 	if (pinfo->mode_gpio_state != MODE_GPIO_NOT_VALID) {
 
@@ -1980,6 +2300,13 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		}
 	}
 
+	
+	//[feature]-ADD-BEGIN by BKL bring up wanying.chen@tcl.com,2015/6/24
+	//#if defined(JRD_PROJECT_POP45C) || defined(JRD_PROJECT_PIXI3454GSPR) || defined(JRD_PROJECT_POP455C) || defined(JRD_PROJECT_POP45) || defined(JRD_PROJECT_PIXI445SPR) || defined(JRD_PROJECT_GOPLAY2) || defined (JRD_PROJECT_POP455CTMO) || defined (JRD_PROJECT_PIXI445CRICKET)|| defined(JRD_PROJECT_PIXI4554G)
+	if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
+		pr_err("reset enable: pinctrl not enabled\n");
+	//#endif
+	//[feature]-ADD-end by BKL bring up wanying.chen@tcl.com,2015/6/24
 	if (pinfo->cont_splash_enabled) {
 		rc = mdss_dsi_panel_power_ctrl(&(ctrl_pdata->panel_data),
 			MDSS_PANEL_POWER_ON);

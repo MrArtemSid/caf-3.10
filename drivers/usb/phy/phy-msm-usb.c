@@ -1598,7 +1598,13 @@ phcd_retry:
 		motg->ui_enabled = 1;
 		enable_irq(motg->irq);
 	}
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for  wait other work baili.ouyang.sz@tcl.com,2015/10/12, for PR716604
+#if 1
+	wake_lock_timeout(&motg->wlock,HZ);
+#else
 	wake_unlock(&motg->wlock);
+#endif
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com,2015/10/12, for PR716604
 
 	dev_dbg(phy->dev, "LPM caps = %lu flags = %lu\n",
 			motg->caps, motg->lpm_flags);
@@ -1846,11 +1852,20 @@ static void msm_otg_notify_host_mode(struct msm_otg *motg, bool host_mode)
 		power_supply_changed(psy);
 	}
 }
+#if defined(JRD_PROJECT_POP455C)
+extern void focaltech_disable_change_scanning_frq(void);
+extern void focaltech_enable_change_scanning_frq(void); 
+bool charger_in = false;
+extern bool focaltech_touchpanel;
+#endif
 
 static int msm_otg_notify_chg_type(struct msm_otg *motg)
 {
 	static int charger_type;
-
+#if defined (JRD_PROJECT_POP455C)
+	int charger_type_last;
+	charger_type_last = charger_type;
+#endif
 	/*
 	 * TODO
 	 * Unify OTG driver charger types and power supply charger types
@@ -1873,6 +1888,31 @@ static int msm_otg_notify_chg_type(struct msm_otg *motg)
 		charger_type = POWER_SUPPLY_TYPE_USB_ACA;
 	else
 		charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
+	
+	#if defined(JRD_PROJECT_POP455C)
+	if ((charger_type_last == POWER_SUPPLY_TYPE_UNKNOWN) && ((charger_type == POWER_SUPPLY_TYPE_USB_DCP) || (charger_type == POWER_SUPPLY_TYPE_USB))) 
+	{ // charger plug in
+		//pr_debug("%s AC or USB charger in \n", __func__);
+		printk(" %s AC or USB charger in .\n", __func__);
+		charger_in = true;
+
+		if (focaltech_touchpanel == true)
+		{
+			focaltech_enable_change_scanning_frq();
+		}
+	}
+
+	if (((charger_type_last == POWER_SUPPLY_TYPE_USB_DCP) || (charger_type_last == POWER_SUPPLY_TYPE_USB))&& (charger_type == POWER_SUPPLY_TYPE_UNKNOWN))
+	{// charger plug out
+		//pr_debug(" %s AC or USB charger out .\n", __func__);
+		printk(" %s AC or USB charger out .\n", __func__);
+		charger_in = false;
+		if (focaltech_touchpanel == true)
+		{
+			focaltech_disable_change_scanning_frq();
+		}
+	}
+#endif	
 
 	if (!psy) {
 		pr_err("No USB power supply registered!\n");
@@ -1989,7 +2029,18 @@ static int msm_otg_set_power(struct usb_phy *phy, unsigned mA)
 	 * states when CDP/ACA is connected.
 	 */
 	if (motg->chg_type == USB_SDP_CHARGER)
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for  car charger charge baili.ouyang.sz@tcl.com,2015/10/12, for PR716604
+#if 1
+	{
+		if(mA>100||mA<2)
+			msm_otg_notify_charger(motg, mA);
+		else if(mA<=100)
+			msm_otg_notify_charger(motg, IDEV_CHG_MIN-50);
+	}
+#else
 		msm_otg_notify_charger(motg, mA);
+#endif
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 
 	return 0;
 }
@@ -2912,7 +2963,8 @@ static void msm_chg_detect_work(struct work_struct *w)
 	static bool dcd;
 	u32 line_state, dm_vlgc;
 	unsigned long delay;
-
+	u32 func_ctrl;//QC12v patch
+	
 	dev_dbg(phy->dev, "chg detection work\n");
 	msm_otg_dbg_log_event(phy, "CHG DETECTION WORK",
 			motg->chg_state, phy->state);
@@ -3003,7 +3055,12 @@ static void msm_chg_detect_work(struct work_struct *w)
 			else if (!dcd && floated_charger_enable)
 				motg->chg_type = USB_FLOATED_CHARGER;
 			else
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for floated charger charge baili.ouyang.sz@tcl.com,2015/10/12, for PR716604
+			{
 				motg->chg_type = USB_SDP_CHARGER;
+				msm_otg_notify_charger(motg, IDEV_CHG_MIN-50);
+			}
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 
 			motg->chg_state = USB_CHG_STATE_DETECTED;
 			delay = 0;
@@ -3042,8 +3099,15 @@ static void msm_chg_detect_work(struct work_struct *w)
 		msm_chg_enable_aca_intr(motg);
 
 		/* Enable VDP_SRC in case of DCP charger */
-		if (motg->chg_type == USB_DCP_CHARGER)
-			ulpi_write(phy, 0x2, 0x85);
+		//if (motg->chg_type == USB_DCP_CHARGER)
+			//ulpi_write(phy, 0x2, 0x85);
+		/* put the controller in non-driving mode */
+		/*QC12v patch begin by baili.ouyang.sz 2016.3.2*/ 
+		func_ctrl = ulpi_read(phy, ULPI_FUNC_CTRL); 
+		func_ctrl &= ~ULPI_FUNC_CTRL_OPMODE_MASK; 
+		func_ctrl |= ULPI_FUNC_CTRL_OPMODE_NONDRIVING; 
+		ulpi_write(phy, func_ctrl, ULPI_FUNC_CTRL); 
+		/*QC12v patch end*/
 
 		dev_dbg(phy->dev, "chg_type = %s\n",
 			chg_to_string(motg->chg_type));
@@ -3281,7 +3345,11 @@ static void msm_otg_sm_work(struct work_struct *w)
 					/* fall through */
 				case USB_PROPRIETARY_CHARGER:
 					msm_otg_notify_charger(motg,
+#if defined (JRD_PROJECT_PIXI445CRICKET)
+							1170);
+#else
 							IDEV_CHG_MAX);
+#endif
 					otg->phy->state =
 						OTG_STATE_B_CHARGER;
 					work = 0;
@@ -3293,7 +3361,13 @@ static void msm_otg_sm_work(struct work_struct *w)
 					break;
 				case USB_FLOATED_CHARGER:
 					msm_otg_notify_charger(motg,
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for floated charger charge baili.ouyang.sz@tcl.com,2015/10/12, for PR716604
+						#if 1
+							IDEV_CHG_MIN);
+						#else
 							IDEV_CHG_MAX);
+						#endif
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 					otg->phy->state =
 						OTG_STATE_B_CHARGER;
 					work = 0;
@@ -5465,6 +5539,11 @@ static int msm_otg_probe(struct platform_device *pdev)
 	phy = &motg->phy;
 	phy->dev = &pdev->dev;
 
+	/* [Bugfix]-Add-BEGIN by TCTSZ. fixed the power on error of usb wenzhao.guo@tcl.com, 2015/11/19, for [Task-666533] */
+	motg->dbg_idx = 0;
+	motg->dbg_lock = __RW_LOCK_UNLOCKED(lck);
+	/* [Bugfix]-Add-END by TCTSZ. fixed the power on error of usb wenzhao.guo@tcl.com, 2015/11/19, for [Task-666533] */
+
 	if (motg->pdata->bus_scale_table) {
 		motg->bus_perf_client =
 		    msm_bus_scale_register_client(motg->pdata->bus_scale_table);
@@ -5679,8 +5758,11 @@ static int msm_otg_probe(struct platform_device *pdev)
 	/* Ensure that above STOREs are completed before enabling interrupts */
 	mb();
 
+    /* [Bugfix]-Del-BEGIN by TCTSZ. fixed the power on error of usb wenzhao.guo@tcl.com, 2015/11/19, for [Task-666533]
 	motg->dbg_idx = 0;
 	motg->dbg_lock = __RW_LOCK_UNLOCKED(lck);
+       [Bugfix]-Del-BEGIN by TCTSZ. fixed the power on error of usb wenzhao.guo@tcl.com, 2015/11/19, for [Task-666533] */
+	
 	ret = msm_otg_mhl_register_callback(motg, msm_otg_mhl_notify_online);
 	if (ret)
 		dev_dbg(&pdev->dev, "MHL can not be supported\n");

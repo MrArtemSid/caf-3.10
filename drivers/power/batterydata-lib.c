@@ -14,9 +14,11 @@
 
 #include <linux/module.h>
 #include <linux/batterydata-lib.h>
-
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for change slope baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+#include <linux/batterydata-interface.h> 
 int linear_interpolate(int y0, int x0, int y1, int x1, int x)
 {
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 	if (y0 == y1 || x == x0)
 		return y0;
 	if (x1 == x0 || x == x1)

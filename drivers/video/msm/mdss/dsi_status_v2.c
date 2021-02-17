@@ -54,6 +54,31 @@ void mdp3_check_dsi_ctrl_status(struct work_struct *work,
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 							panel_data);
 
+//[Feature]-Add-BEGIN by TCTSZ. lcd esd check . yusen.ke.sz@tcl.com, 2015/11/27, for PR364368 
+/*[Feature]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2016/01/12, use TE ESD for pixi464g */
+#if defined(JRD_PROJECT_POP455C) || defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET) || defined (JRD_PROJECT_GOPLAY2)
+/*[Feature]-Mod-END by TCTSZ.yaohui.zeng, 2016/01/12 */
+
+	if (!ctrl_pdata) {
+		pr_err("=========== richard: ctrl_pdata is NULL\n");
+		return;
+	}
+	if(ctrl_pdata->status_mode == ESD_TE)
+	{
+      if (mdss_fb_is_power_on_interactive(pdsi_status->mfd)){
+		char *envp[2] = {"PANEL_ALIVE=0", NULL};
+		pdata->panel_info.panel_dead = true;
+		ret = kobject_uevent_env(
+				&pdsi_status->mfd->fbi->dev->kobj,
+				KOBJ_CHANGE, envp);
+		pr_err("%s: Panel has gone bad, sending uevent - %s\n",
+						__func__, envp[0]);
+      	}
+	return;      
+	}     
+#endif
+//[Feature]-Add-END by TCTSZ. yusen.ke.sz@tcl.com, 2015/6/19, for PR364368
+	
 	if (!ctrl_pdata || !ctrl_pdata->check_status) {
 		pr_err("%s: DSI ctrl or status_check callback not available\n",
 								__func__);

@@ -704,6 +704,12 @@ static int vfp_hotplug(struct notifier_block *b, unsigned long action,
 	return NOTIFY_OK;
 }
 
+/* BEGIN procfs is not ready in 'core_initcall' level, remove by xiaoju.liang@tcl.com */
+#ifdef CONFIG_PROC_FS
+#undef CONFIG_PROC_FS
+#endif
+/* END */
+
 #ifdef CONFIG_PROC_FS
 static int vfp_bounce_show(struct seq_file *m, void *v)
 {

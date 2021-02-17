@@ -24,6 +24,10 @@
 #include <linux/input.h>
 #include <linux/log2.h>
 #include <linux/qpnp/power-on.h>
+//add by junfeng.zhou for add timestamp of powerkey begin .
+#include <linux/rtc.h>
+#include <linux/time.h>
+//add by junfeng.zhou for add timestamp of powerkey end .
 
 #define CREATE_MASK(NUM_BITS, POS) \
 	((unsigned char) (((1 << (NUM_BITS)) - 1) << (POS)))
@@ -51,6 +55,11 @@
 #define QPNP_PON_WARM_RESET_REASON1(base)	(base + 0xA)
 #define QPNP_PON_WARM_RESET_REASON2(base)	(base + 0xB)
 #define QPNP_POFF_REASON1(base)			(base + 0xC)
+
+//[Feature]-Add-BEGIN by TCTSZ. yongzhong.cheng@tcl.com, 2015/6/24, for ALM366701:print UTC time and poweroff reason
+#define QPNP_PON_SOFT_RESET_REASON(base)			(base + 0xE)
+//[Feature]-Add-END by TCTSZ. yongzhong.cheng@TCL.com, 2015/6/24, for  ALM366701
+
 #define QPNP_PON_KPDPWR_S1_TIMER(base)		(base + 0x40)
 #define QPNP_PON_KPDPWR_S2_TIMER(base)		(base + 0x41)
 #define QPNP_PON_KPDPWR_S2_CNTL(base)		(base + 0x42)
@@ -166,6 +175,13 @@ struct qpnp_pon {
 };
 
 static struct qpnp_pon *sys_reset_dev;
+/* [Platform]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2015/12/17, pixi464g doesn't need these code*/
+#if (!defined(JRD_PROJECT_PIXI464G)) && (!defined(JRD_PROJECT_PIXI464GCRICKET))
+//add by yusen.ke.sz@tcl.com at 20150812 for display resume time
+extern ktime_t resume_start;
+//add end
+#endif
+/* [Platform]-Mod-END by TCTSZ.yaohui.zeng*/
 
 static u32 s1_delay[PON_S1_COUNT_MAX + 1] = {
 	0 , 32, 56, 80, 138, 184, 272, 408, 608, 904, 1352, 2048,
@@ -410,6 +426,23 @@ int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 
 	dev_dbg(&pon->spmi->dev, "power off type = 0x%02X\n", type);
 
+//[Feature]-Add-BEGIN by TCTSZ. yongzhong.cheng@tcl.com, 2015/6/24, 
+//for ALM366701:print UTC time and poweroff reason
+	switch (type) {
+	case 0x01:
+		dev_err(&pon->spmi->dev, "power off type = 0x%02X,PON_POWER_OFF_WARM_RESET\n", type);
+		break;
+	case 0x04:
+		dev_err(&pon->spmi->dev, "power off type = 0x%02X,PON_POWER_OFF_SHUTDOWN\n", type);
+		break;
+	case 0x07:
+		dev_err(&pon->spmi->dev, "power off type = 0x%02X,PON_POWER_OFF_HARD_RESET\n", type);
+		break;
+	default:
+		dev_err(&pon->spmi->dev, "power off type = 0x%02X,unknow\n", type);
+	}
+//[Feature]-Add-END by TCTSZ. yongzhong.cheng@TCL.com, 2015/6/24, for  ALM366701
+
 	return rc;
 }
 EXPORT_SYMBOL(qpnp_pon_system_pwr_off);
@@ -576,6 +609,27 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	switch (cfg->pon_type) {
 	case PON_KPDPWR:
 		pon_rt_bit = QPNP_PON_KPDPWR_N_SET;
+/* [Platform]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2015/12/17, pixi464g doesn't need these code*/
+#if (!defined(JRD_PROJECT_PIXI464G)) && (!defined(JRD_PROJECT_PIXI464GCRICKET))
+		//add by yusen.ke.sz@tcl.com at 20151127 for display resume time		
+		if(!(pon_rt_bit & pon_rt_sts))			
+			resume_start=ktime_get();		
+		//add end
+		//[Feature] Add by hong.lan@tcl.com for power key log PR:389144 2015/06/25
+#endif
+/* [Platform]-Mod-END by TCTSZ.yaohui.zeng*/
+//add by junfeng.zhou for add timestamp of powerkey begin .
+{
+		struct timespec ts;
+		struct rtc_time tm;
+
+		getnstimeofday(&ts);
+		set_localtimezone_timespec(&ts);
+		rtc_time_to_tm(ts.tv_sec, &tm);
+		pr_info("%d-%02d-%02d %02d:%02d:%02d Report pwrkey %s event,key_code:%d\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,tm.tm_hour, tm.tm_min, tm.tm_sec,pon_rt_bit & pon_rt_sts ?
+			"press" : "release",cfg->key_code);
+}
+//add by junfeng.zhou for add timestamp of powerkey end .
 		break;
 	case PON_RESIN:
 		pon_rt_bit = QPNP_PON_RESIN_N_SET;
@@ -718,8 +772,19 @@ static void bark_work_func(struct work_struct *work)
 	}
 
 	/* enable reset */
+
+//[Feature]-BEGIN by TCTSZ.yongzhong.cheng@tcl.com,2015/12/2,forbit power key S2+S3 reset	
+#ifdef TARGET_BUILD_CERTIFICATION
+	printk("kernel:bark_work_func:define TARGET_BUILD_CERTIFICATION\n");
+	rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr,
+				QPNP_PON_S2_CNTL_EN, 0);
+#else
+	printk("kernel:bark_work_func:no define TARGET_BUILD_CERTIFICATION\n");
 	rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr,
 				QPNP_PON_S2_CNTL_EN, QPNP_PON_S2_CNTL_EN);
+#endif
+//[Feature]-BEGIN by TCTSZ.yongzhong.cheng@tcl.com,2015/12/2,forbit power key S2+S3 reset
+				
 	if (rc) {
 		dev_err(&pon->spmi->dev, "Unable to configure S2 enable\n");
 		goto err_return;
@@ -885,8 +950,18 @@ qpnp_config_reset(struct qpnp_pon *pon, struct qpnp_pon_config *cfg)
 	}
 
 	/* enable S2 reset */
+//[Feature]-BEGIN by TCTSZ.yongzhong.cheng@tcl.com,2015/12/2,forbit power key S2+S3 reset
+#ifdef TARGET_BUILD_CERTIFICATION
+	printk("kernel:qpnp_config_reset:define TARGET_BUILD_CERTIFICATION\n");
+	rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr,
+				QPNP_PON_S2_CNTL_EN, 0);
+#else
+	printk("kernel:qpnp_config_reset:no define TARGET_BUILD_CERTIFICATION\n");
 	rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr,
 				QPNP_PON_S2_CNTL_EN, QPNP_PON_S2_CNTL_EN);
+#endif		
+//[Feature]-BEGIN by TCTSZ.yongzhong.cheng@tcl.com,2015/12/2,forbit power key S2+S3 reset
+		
 	if (rc) {
 		dev_err(&pon->spmi->dev, "Unable to configure S2 enable\n");
 		return rc;

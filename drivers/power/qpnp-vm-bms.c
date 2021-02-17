@@ -118,11 +118,23 @@
 #define CV_DROP_MARGIN			10000
 #define MIN_OCV_UV			2000000
 #define TIME_PER_PERCENT_UUC		60
+
+//added by kaiying.zhang for updating capacity slow issue.
+#if defined(JRD_PROJECT_PIXI445SPR)
+#define IAVG_SAMPLES			6
+#else
 #define IAVG_SAMPLES			16
+#endif
+//ended
+
 #define MIN_SOC_UUC			3
 
 #define QPNP_VM_BMS_DEV_NAME		"qcom,qpnp-vm-bms"
 
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for reading vbat to check with pon_ocv  baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+#define BMS_VBATT_REG			0xb6
+#define PON_OCV_LIMIT_MV		50
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 /* indicates the state of BMS */
 enum {
 	IDLE_STATE,
@@ -229,7 +241,14 @@ struct qpnp_bms_chip {
 	unsigned long			workaround_flag;
 	unsigned long			uuc_tm_sec;
 	u32				seq_num;
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for reading vbat to check with pon_ocv  baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+#if 1
+	int				shutdown_soc;
+#else
 	u8				shutdown_soc;
+#endif
+	bool				last_charger_present;
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 	bool				shutdown_soc_invalid;
 	u16				last_ocv_raw;
 	u32				shutdown_ocv;
@@ -280,6 +299,9 @@ struct qpnp_bms_chip {
 	int				reported_soc;
 	int				reported_soc_change_sec;
 	int				reported_soc_delta;
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for reading vbat to check with pon_ocv  baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+	int temperature;
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 };
 
 static struct qpnp_bms_chip *the_chip;
@@ -344,11 +366,22 @@ static int qpnp_read_wrapper(struct qpnp_bms_chip *chip, u8 *val,
 {
 	int rc;
 	struct spmi_device *spmi = chip->spmi;
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for read more times when error occurs baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+#ifdef CONFIG_JRD_BUTTON_POWER
+	int cnt = 1;
 
+	do {
+		rc = spmi_ext_register_readl(spmi->ctrl, spmi->sid, base, val, count);
+		if (rc)
+			pr_err("SPMI read failed rc=%d, cnt=%d\n", rc, cnt);
+		cnt++;
+	} while (rc && cnt <= 5);
+#else
 	rc = spmi_ext_register_readl(spmi->ctrl, spmi->sid, base, val, count);
 	if (rc)
 		pr_err("SPMI read failed rc=%d\n", rc);
-
+#endif
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 	return rc;
 }
 
@@ -943,10 +976,52 @@ static int adjust_uuc(struct qpnp_bms_chip *chip, int soc_uuc)
 			chip->prev_soc_uuc -= max_percent_change;
 	}
 
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for battery capacity issue baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+	if (chip->prev_soc_uuc < 0)
+		chip->prev_soc_uuc = 0;
 	pr_debug("soc_uuc=%d new_soc_uuc=%d\n", soc_uuc, chip->prev_soc_uuc);
 
 	return chip->prev_soc_uuc;
 }
+static int get_battery_voltage(struct qpnp_bms_chip *chip, int *result_uv);
+static int batt_voltage_now_mv=0;
+int get_battery_voltage_lib(void )
+{
+	return batt_voltage_now_mv;
+}
+static int clamp_soc_based_on_voltage(struct qpnp_bms_chip *chip, int soc, int batt_temp)
+{
+	int rc, vbat_uv;
+
+	rc = get_battery_voltage(chip, &vbat_uv);
+	if (rc < 0) {
+		pr_err("adc vbat failed err = %d\n", rc);
+		return soc;
+	}
+	batt_voltage_now_mv = vbat_uv/1000;
+
+	if(batt_temp>0){
+
+		/* only clamp when discharging */
+		if (is_battery_charging(chip))
+			return soc;
+
+		if (soc <= 0 && vbat_uv > chip->dt.cfg_v_cutoff_uv) {
+			pr_err("clamping soc to 1, vbat (%d) > cutoff (%d)\n",	vbat_uv, chip->dt.cfg_v_cutoff_uv);
+			return 1;
+		} else if(vbat_uv < (chip->dt.cfg_v_cutoff_uv-200000)){
+			pr_err("clamping soc to 0, vbat (%d) < cutoff (%d)\n",	vbat_uv, chip->dt.cfg_v_cutoff_uv-200000);
+			return 0;
+		}
+		else if(soc > 1 && vbat_uv < chip->dt.cfg_v_cutoff_uv){
+			pr_err("clamping soc to 1, vbat (%d) < cutoff (%d)\n",	vbat_uv, chip->dt.cfg_v_cutoff_uv);
+			return 1;
+		}
+
+	}
+	return soc;
+}
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 
 static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 {
@@ -963,7 +1038,8 @@ static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 
 	if (chip->batt_data->ibat_acc_lut) {
 		/* Apply  ACC logic only if we discharging */
-		if (chip->current_now > 0) {
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for capacity descend in charging baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+		if (!is_battery_charging(chip)) {
 
 			/*
 			 * IBAT averaging is disabled at low temp.
@@ -989,9 +1065,11 @@ static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 			if (batt_temp > chip->dt.cfg_low_temp_threshold)
 				soc_uuc = adjust_uuc(chip, soc_uuc);
 
-			soc_acc = DIV_ROUND_CLOSEST(100 * (soc_ocv - soc_uuc),
-							(100 - soc_uuc));
-
+			//soc_acc = DIV_ROUND_CLOSEST(100 * (soc_ocv - soc_uuc),
+			//				(100 - soc_uuc));
+			soc_acc = DIV_ROUND_CLOSEST(100 * (soc_ocv - soc_uuc - soc_cutoff),
+							(100 - soc_uuc - soc_cutoff));
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 			pr_debug("fcc=%d acc=%d soc_final=%d soc_uuc=%d soc_acc=%d current_now=%d iavg_ma=%d\n",
 				fcc, acc, soc_final, soc_uuc,
 				soc_acc, chip->current_now / 1000, iavg_ma);
@@ -1009,11 +1087,16 @@ static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 		}
 	}
 
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for battery capacity issue baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+	soc_final = clamp_soc_based_on_voltage(chip,soc_final,batt_temp);
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 	soc_final = bound_soc(soc_final);
-
-	pr_debug("soc_final=%d soc_ocv=%d soc_cutoff=%d ocv_uv=%u batt_temp=%d\n",
+#if defined (BUILD_ENG_VERSION)
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for  get log  baili.ouyang.sz@tcl.com,2015/10/12, for PR716604
+	pr_err("soc_final=%d soc_ocv=%d soc_cutoff=%d ocv_uv=%u batt_temp=%d\n",
 			soc_final, soc_ocv, soc_cutoff, ocv_uv, batt_temp);
-
+#endif
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 	return soc_final;
 }
 
@@ -1215,6 +1298,25 @@ static int get_battery_status(struct qpnp_bms_chip *chip)
 	return POWER_SUPPLY_STATUS_UNKNOWN;
 }
 
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for  control charge  baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+static int get_battery_health(struct qpnp_bms_chip *chip)
+{
+	union power_supply_propval ret = {0,};
+
+	if (chip->batt_psy == NULL)
+		chip->batt_psy = power_supply_get_by_name("battery");
+	if (chip->batt_psy) {
+		/* if battery has been registered, use the status property */
+		chip->batt_psy->get_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_HEALTH, &ret);
+		return ret.intval;
+	}
+
+	/* Default to false if the battery power supply is not registered. */
+	pr_debug("battery power supply is not registered\n");
+	return POWER_SUPPLY_HEALTH_UNKNOWN;
+}
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 static int get_batt_therm(struct qpnp_bms_chip *chip, int *batt_temp)
 {
 	int rc;
@@ -1230,7 +1332,11 @@ static int get_batt_therm(struct qpnp_bms_chip *chip, int *batt_temp)
 			result.physical, result.measurement);
 
 	*batt_temp = (int)result.physical;
-
+	//add by junfeng.zhou for no ntc temp begin
+	#ifdef JRD_PROJECT_GOPLAY2
+		*batt_temp = BMS_DEFAULT_TEMP;
+	#endif
+	//add by junfeng.zhou for  no ntc temp end
 	return 0;
 }
 
@@ -1433,12 +1539,14 @@ static int report_eoc(struct qpnp_bms_chip *chip)
 
 	return rc;
 }
-
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for charge control baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+static int get_usb_voltage(struct qpnp_bms_chip *chip, int *result_uv);
 static void check_recharge_condition(struct qpnp_bms_chip *chip)
 {
 	int rc;
 	union power_supply_propval ret = {0,};
 	int status = get_battery_status(chip);
+	int vbat_uv; 
 
 	if (chip->last_soc > chip->dt.cfg_soc_resume_limit)
 		return;
@@ -1448,8 +1556,15 @@ static void check_recharge_condition(struct qpnp_bms_chip *chip)
 		return;
 	}
 
+	if(POWER_SUPPLY_HEALTH_GOOD!=get_battery_health(chip))
+		return;
+
+	rc = get_usb_voltage(chip, &vbat_uv);
+	if(vbat_uv/1000<4000)
+		return;
+
 	/* Report recharge to charger for SOC based resume of charging */
-	if ((status != POWER_SUPPLY_STATUS_CHARGING) && chip->eoc_reported) {
+	if ((status != POWER_SUPPLY_STATUS_CHARGING) &&chip->bms_dev_open/*&& chip->eoc_reported*/) {
 		ret.intval = POWER_SUPPLY_STATUS_CHARGING;
 		rc = chip->batt_psy->set_property(chip->batt_psy,
 				POWER_SUPPLY_PROP_STATUS, &ret);
@@ -1463,7 +1578,7 @@ static void check_recharge_condition(struct qpnp_bms_chip *chip)
 		}
 	}
 }
-
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 static void check_eoc_condition(struct qpnp_bms_chip *chip)
 {
 	int rc;
@@ -1586,13 +1701,21 @@ static int prepare_reported_soc(struct qpnp_bms_chip *chip)
 #define SOC_CATCHUP_SEC_MAX		600
 #define SOC_CATCHUP_SEC_PER_PERCENT	60
 #define MAX_CATCHUP_SOC	(SOC_CATCHUP_SEC_MAX / SOC_CATCHUP_SEC_PER_PERCENT)
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for capacity disp  baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+#if 0
 #define SOC_CHANGE_PER_SEC		5
+#else
+#define SOC_CHANGE_PER_SEC		30
+#define SOC_CHANGE_PER_SEC_FAST		30
+#endif
+
 static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 {
 	int soc, soc_change, batt_temp, rc;
 	int time_since_last_change_sec = 0, charge_time_sec = 0;
 	unsigned long last_change_sec;
 	bool charging;
+	bool charger_present; 
 
 	soc = chip->calculated_soc;
 
@@ -1600,7 +1723,8 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 	calculate_delta_time(&last_change_sec, &time_since_last_change_sec);
 
 	charging = is_battery_charging(chip);
-
+	charger_present = is_charger_present(chip); 
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com,  2015/10/12, for PR716604
 	pr_debug("charging=%d last_soc=%d last_soc_unbound=%d\n",
 		charging, chip->last_soc, chip->last_soc_unbound);
 	/*
@@ -1667,7 +1791,12 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 		if (bms_wake_active(&chip->vbms_lv_wake_source) ||
 			(batt_temp <= chip->dt.cfg_low_temp_threshold))
 			soc_change = min((int)abs(chip->last_soc - soc),
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for capacity disp  baili.ouyang.sz@tcl.com,  2015/10/12, for PR716604
+#if 0
 				time_since_last_change_sec);
+#else
+				time_since_last_change_sec/SOC_CHANGE_PER_SEC_FAST);
+#endif
 		else
 			soc_change = min((int)abs(chip->last_soc - soc),
 				time_since_last_change_sec
@@ -1675,6 +1804,7 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 
 		if (chip->last_soc_unbound) {
 			chip->last_soc_unbound = false;
+			soc_change = min(4, soc_change);
 		} else {
 			/*
 			 * if soc have not been unbound by resume,
@@ -1682,14 +1812,25 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 			 */
 			soc_change = min(1, soc_change);
 		}
-
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com,  2015/10/12, for PR716604
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for capacity disp  baili.ouyang.sz@tcl.com,  2015/10/12, for PR716604
+#if 0
 		if (soc < chip->last_soc && soc != 0)
+#else
+		if (soc < chip->last_soc)
+#endif
 			soc = chip->last_soc - soc_change;
 		if (soc > chip->last_soc && soc != 100)
 			soc = chip->last_soc + soc_change;
 	}
 
+#if 0
 	if (chip->last_soc != soc && !chip->last_soc_unbound)
+#else
+	//if(chip->last_soc != soc)
+	if (chip->last_soc != soc||(soc==100 && !charger_present && chip->last_charger_present))
+#endif
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com,  2015/10/12, for PR716604
 		chip->last_soc_change_sec = last_change_sec;
 
 	/*
@@ -1698,18 +1839,21 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 	 *	soc != chip->last_soc
 	 * during bootup if soc is 100:
 	 */
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for control charge  baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 	soc = bound_soc(soc);
 	if ((soc != chip->last_soc) || (soc == 100)) {
 		chip->last_soc = soc;
 		check_eoc_condition(chip);
-		if ((chip->dt.cfg_soc_resume_limit > 0) && !charging)
-			check_recharge_condition(chip);
 	}
+	if ( chip->last_soc<100 &&(chip->dt.cfg_soc_resume_limit > 0) && !charging)
+		check_recharge_condition(chip);
 
-	pr_debug("last_soc=%d calculated_soc=%d soc=%d time_since_last_change=%d\n",
+	pr_debug("last_soc=%d calculated_soc=%d soc=%d time_since_last_change=%d, charger_present=%d, chip->last_charger_present=%d\n",
 			chip->last_soc, chip->calculated_soc,
-			soc, time_since_last_change_sec);
+			soc, time_since_last_change_sec,charger_present,chip->last_charger_present);
 
+	chip->last_charger_present=charger_present; 
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 	/*
 	 * Backup the actual ocv (last_ocv_uv) and not the
 	 * last_soc-interpolated ocv. This makes sure that
@@ -2012,7 +2156,8 @@ static void calculate_reported_soc(struct qpnp_bms_chip *chip)
 	pr_debug("bms power_supply_changed\n");
 	power_supply_changed(&chip->bms_psy);
 }
-
+//[Del]-Add-BEGIN by TCTSZ. baili.ouyang.sz@tcl.com,  2015/10/12, for PR716604
+#if 0
 static int clamp_soc_based_on_voltage(struct qpnp_bms_chip *chip, int soc)
 {
 	int rc, vbat_uv;
@@ -2037,6 +2182,8 @@ static int clamp_soc_based_on_voltage(struct qpnp_bms_chip *chip, int soc)
 		return soc;
 	}
 }
+#endif
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 
 static void battery_voltage_check(struct qpnp_bms_chip *chip)
 {
@@ -2058,6 +2205,9 @@ static void monitor_soc_work(struct work_struct *work)
 				struct qpnp_bms_chip,
 				monitor_soc_work.work);
 	int rc, new_soc = 0, batt_temp;
+//[Feature]-Add-BEGIN by TCTSZ.for soc  baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+	int vbat_uv;
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 
 	bms_stay_awake(&chip->vbms_soc_wake_source);
 
@@ -2084,7 +2234,16 @@ static void monitor_soc_work(struct work_struct *work)
 							rc, BMS_DEFAULT_TEMP);
 				batt_temp = BMS_DEFAULT_TEMP;
 			}
-
+//[Feature]-Add-BEGIN by TCTSZ.for soc  baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+			rc = get_usb_voltage(chip, &vbat_uv);
+			if(vbat_uv/1000<4500){
+				if(abs(batt_temp-chip->temperature) >= 20){
+					chip->temperature = batt_temp;
+					power_supply_changed(&chip->bms_psy);
+				//pr_err("%s,healthd baili.ouoyang.sz abs(temper-chip->temperature) >= 10\n",__func__);
+				}
+			}
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 			if (chip->last_soc_invalid) {
 				chip->last_soc_invalid = false;
 				chip->last_soc = -EINVAL;
@@ -2092,7 +2251,10 @@ static void monitor_soc_work(struct work_struct *work)
 			new_soc = lookup_soc_ocv(chip, chip->last_ocv_uv,
 								batt_temp);
 			/* clamp soc due to BMS hw/sw immaturities */
-			new_soc = clamp_soc_based_on_voltage(chip, new_soc);
+//[Del]-Add-BEGIN by TCTSZ.for soc  baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+
+			//new_soc = clamp_soc_based_on_voltage(chip, new_soc);
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 
 			if (chip->calculated_soc != new_soc) {
 				pr_debug("SOC changed! new_soc=%d prev_soc=%d\n",
@@ -2799,6 +2961,15 @@ static int read_shutdown_ocv_soc(struct qpnp_bms_chip *chip)
 	} else {
 		chip->shutdown_soc = (stored_soc >> 1) - 1;
 	}
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for reading vbat to check with pon_ocv  baili.ouyang.sz@tcl.com,  2015/10/12, for PR716604
+	if(chip->shutdown_soc>100||chip->shutdown_soc<0)
+	{
+	       pr_err("shutdown SOC %d - invalid\n", chip->shutdown_soc);
+		chip->shutdown_soc = SOC_INVALID;
+		chip->shutdown_ocv = OCV_INVALID;
+		return -EINVAL;
+	}
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 
 	pr_debug("shutdown_ocv=%d shutdown_soc=%d\n",
 			chip->shutdown_ocv, chip->shutdown_soc);
@@ -2863,9 +3034,53 @@ static void adjust_pon_ocv(struct qpnp_bms_chip *chip, int batt_temp)
 	}
 }
 
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for reading vbat to check with pon_ocv  baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+static int get_usb_voltage(struct qpnp_bms_chip *chip, int *result_uv)
+{
+	int rc;
+	struct qpnp_vadc_result adc_result;
+
+	rc = qpnp_vadc_read(chip->vadc_dev, USBIN, &adc_result);
+	if (rc) {
+		pr_err("error reading adc channel = %d, rc = %d\n",VCHG_SNS, rc);
+		return rc;
+	}
+
+	*result_uv = (int)adc_result.physical;
+
+	return 0;
+}
+static int pon_ocv_check(struct qpnp_bms_chip *chip)
+{
+	u8 buf[2];
+	int rc;
+	int vbatt_mv = 0;
+
+	rc = qpnp_read_wrapper(chip, buf,
+				chip->base + BMS_VBATT_REG, 2);
+	if (rc) {
+		pr_err("failed to read addr = %d %d\n",
+				chip->base + BMS_VBATT_REG, rc);
+		return -EINVAL;
+	}
+	vbatt_mv = buf[0] | (buf[1] << 8);
+
+	pr_info("pon_ocv = %d, vbatt_mv = %d\n", chip->last_ocv_uv, vbatt_mv);
+	if ( vbatt_mv>3400 && vbatt_mv<4400 &&
+		abs(chip->last_ocv_uv/1000 - vbatt_mv) > PON_OCV_LIMIT_MV) {
+		chip->last_ocv_uv = vbatt_mv * 1000;
+		pr_info("change pon_ocv to last_ocv_uv = %d\n", chip->last_ocv_uv);
+	}
+
+	return 0;
+}
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com,2015/10/12, for PR716604
 static int calculate_initial_soc(struct qpnp_bms_chip *chip)
 {
 	int rc, batt_temp = 0, est_ocv = 0;
+//[Feature]-Add by TCTSZ.Del qcom for reading vbat to check with pon_ocv  baili.ouyang.sz@tcl.com,2015/10/12, for PR716604
+	int vbat_uv;
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com,2015/10/12, for PR716604
 
 	rc = get_batt_therm(chip, &batt_temp);
 	if (rc < 0) {
@@ -2917,11 +3132,24 @@ static int calculate_initial_soc(struct qpnp_bms_chip *chip)
 		if (chip->workaround_flag & WRKARND_PON_OCV_COMP)
 			adjust_pon_ocv(chip, batt_temp);
 
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for battery capacity issue baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+		if ( batt_temp > 0)
+			pon_ocv_check(chip);
+		rc = get_usb_voltage(chip, &vbat_uv);
+		pr_err("vusb_mv=%d\n", vbat_uv/1000);
+
+		if(vbat_uv>4000000 && chip->last_ocv_uv<3600000)
+			chip->shutdown_soc_invalid=true;
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com,2015/10/12, for PR716604
 		 /* !warm_reset use PON OCV only if shutdown SOC is invalid */
 		chip->calculated_soc = lookup_soc_ocv(chip,
 					chip->last_ocv_uv, batt_temp);
 		if (!chip->shutdown_soc_invalid &&
-			(abs(chip->shutdown_soc - chip->calculated_soc) <
+//[Feature]-edit- by TCTSZ.Del qcom for poweroff charging baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+			//(abs(chip->shutdown_soc - chip->calculated_soc) <  
+			((chip->shutdown_soc - chip->calculated_soc) <
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+
 				chip->dt.cfg_shutdown_soc_valid_limit)) {
 			chip->last_ocv_uv = chip->shutdown_ocv;
 			chip->last_soc = chip->shutdown_soc;
@@ -2935,6 +3163,14 @@ static int calculate_initial_soc(struct qpnp_bms_chip *chip)
 	}
 	/* store the start-up OCV for voltage-based-soc */
 	chip->voltage_soc_uv = chip->last_ocv_uv;
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for capacity disp baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+	{
+		unsigned long now_tm_sec = 0;
+		if (get_current_time(&now_tm_sec))
+			pr_err("RTC read failed\n");
+		chip->last_soc_change_sec=now_tm_sec;
+	}
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 
 	pr_info("warm_reset=%d est_ocv=%d  shutdown_soc_invalid=%d shutdown_ocv=%d shutdown_soc=%d last_soc=%d calculated_soc=%d last_ocv_uv=%d\n",
 		chip->warm_reset, est_ocv, chip->shutdown_soc_invalid,
@@ -4187,6 +4423,10 @@ static int bms_resume(struct device *dev)
 			((tm_now_sec - chip->tm_sec) * 1000);
 		monitor_soc_delay = max(0, monitor_soc_delay);
 	}
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for lower airplane mode current baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+	if (chip->batt_psy != NULL)
+		power_supply_changed(chip->batt_psy);
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR PR716604
 	pr_debug("monitor_soc_delay_sec=%d tm_now_sec=%ld chip->tm_sec=%ld\n",
 			monitor_soc_delay / 1000, tm_now_sec, chip->tm_sec);
 	schedule_delayed_work(&chip->monitor_soc_work,

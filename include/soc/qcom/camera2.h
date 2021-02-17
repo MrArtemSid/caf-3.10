@@ -157,6 +157,9 @@ struct msm_camera_sensor_board_info {
 	const char *misc_regulator;
 	struct msm_camera_power_ctrl_t power_info;
 	struct msm_camera_sensor_slave_info *cam_slave_info;
+//tct yinsheng.fu add for gc0120 module id pin begin 20151211
+    int module_id_pin;
+//tct yinsheng.fu add for gc0120 module id pin endui 20151211
 };
 
 enum msm_camera_i2c_cmd_type {

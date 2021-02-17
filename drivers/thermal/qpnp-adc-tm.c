@@ -170,8 +170,9 @@
 
 #define QPNP_MIN_TIME			2000
 #define QPNP_MAX_TIME			2100
-#define QPNP_RETRY			25
-
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for sometimes the adc get channel failed baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+#define QPNP_RETRY			1000
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 struct qpnp_adc_thr_client_info {
 	struct list_head		list;
 	struct qpnp_adc_tm_btm_param	*btm_param;

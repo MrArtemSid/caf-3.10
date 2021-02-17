@@ -524,7 +524,23 @@ config LEDS_AW2013
 	help
 	  This option enables support for the AW2013 RGB LED connected
 	  through I2C. Say Y to enable support for the AW2013 LED.
-
+# add by jin.xia for LEDS_3721SNKK2C driver porting. 2016-3-16
+config LEDS_3721SNKK2C
+        tristate "LED support for AW2013"
+	depends on LEDS_CLASS 
+	help
+	  This option enables support for the LEDS_3721SNKK2C LED connected
+	  through I2C. Say Y to enable support for the LEDS_3721SNKK2C .
+#end add
+# [Feature]-Add-BEGIN by TCTSZ. add sn3191 device for leds driver porting junfeng.zhou.sz@tcl.com, 2015/6/19, for PR367664
+config LEDS_SN3191
+	tristate "LED support for the BlinkM I2C RGB LED"
+	depends on LEDS_CLASS
+	depends on I2C
+	help
+		This option enables support for the BlinkM RGB LED connected
+		through I2C. Say Y to enable support for the BlinkM LED.
+# [Feature]-Add-END by TCTSZ. junfeng.zhou.sz@tcl.com, 2015/6/19, for PR367664
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 

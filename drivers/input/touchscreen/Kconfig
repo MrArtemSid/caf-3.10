@@ -1074,4 +1074,92 @@ config TOUCHSCREEN_IT7260_I2C
 	  To compile this driver as a module, choose M here: the
 	  module will be called it7258_ts_i2c.
 
+#[Feature] Add Begin by hong.lan@tcl.com for touchpanel driver pixiprime-5 4G 2016/09/01 PR:538578
+source "drivers/input/touchscreen/pop45c/gt615/Kconfig"
+source "drivers/input/touchscreen/pop45c/focaltech/Kconfig"
+#[Feature] Add End by hong.lan@tcl.com for touchpanel driver pixiprime-5 4G 2016/09/01 PR:538578
+
+#Add Pixi445Cricket TP driver  by ke.li@tcl.com  2016.2.17
+source "drivers/input/touchscreen/pixi445c/msg2238/Kconfig"
+source "drivers/input/touchscreen/pixi445c/ft3307/Kconfig"
+#Add Pixi445Cricket TP driver  by ke.li@tcl.com  2016.2.17
+	  
+#[Feature] Add Begin by weigeng.huang@tcl.com for touchpanel driver GoPlay2 2016/01/07
+source "drivers/input/touchscreen/Goplay2/gt615/Kconfig"
+#[Feature] Add End by weigeng.huang@tcl.com for touchpanel driver GoPlay2  2016/01/07
+
+
+
+	  
+#[Feature] Add Begin by hong.lan@tcl.com for touchpanel driver Pop4-5.5C 2016/09/21 TASK:538578
+source "drivers/input/touchscreen/pop455c/ft5346i/Kconfig"
+source "drivers/input/touchscreen/pop455c/gt5668/Kconfig"
+#[Feature] Add End by hong.lan@tcl.com for touchpanel driver Pop4-5.5C 2016/09/21 TASK:538578
+
+#[Feature] Add Begin by falin.luo@tcl.com for touchpanel driver Pixi464G 2015/12/18
+source "drivers/input/touchscreen/Pixi464G/s2333/Kconfig"
+source "drivers/input/touchscreen/Pixi464G/melfas_mip4_mms438/Kconfig"
+#[Feature] Add End by falin.luo@tcl.com for touchpanel driver Pixi464G 2015/12/18
+
+#[Feature] Add Begin by hong.lan@tcl.com for touchpanel driver Pixi3454GSPR 2015/10/29 PR:844578
+config FT6336_TOUCHSCREEN_DRIVER 
+	bool "FocalTech FT6336 touchpanel driver"
+	depends on I2C
+	default y
+	help
+	  Say Y here if you have a FocalTech FT6336 touchscreen.
+	  ft6336 controllers are multi touch controllers which can
+	  report some touches at a time.
+
+          If unsure, say N.
+source "drivers/input/touchscreen/Pixi3454GSPR/ft6336/Kconfig"
+#[Feature] Add End by hong.lan@tcl.com for touchpanel driver Pixi3454GSPR 2015/10/29 PR:844578
+
+#[Feature] Add Begin by hong.lan@tcl.com for pop45 himax825 2015/11/20 
+config TOUCHSCREEN_HIMAX_HX852xES
+	bool "Himax touchpanel HX852xES series"
+	depends on I2C
+	help
+	  Say Y here if you have a Himax HX852xES touchscreen.
+	  HX852xES controllers are multi touch controllers which can
+	  report 10 touches at a time.
+
+          If unsure, say N.
+
+source "drivers/input/touchscreen/pop45/hx852xes/Kconfig"
+#[Feature] Add End by hong.lan@tcl.com for pop45 himax825 2015/11/20 
+
+#[Feature] Add Begin by weigeng.huang@tcl.com for Pixi4554G himax825 2016/3/4 
+config TOUCHSCREEN_PIXI4554G_HIMAX
+	bool "Himax touchpanel HX852xES series"
+	depends on I2C
+	help
+	  Say Y here if you have a Himax HX852xES touchscreen.
+	  HX852xES controllers are multi touch controllers which can
+	  report 10 touches at a time.
+
+          If unsure, say N.
+
+source "drivers/input/touchscreen/Pixi4554G/hx852xes/Kconfig"
+#[Feature] Add End by weigeng.huang@tcl.com for Pixi4554G himax825 2016/3/4 
+
+
+#[Feature] Add Begin by hong.lan@tcl.com touch panel driver 2015/12/03
+source "drivers/input/touchscreen/pop45/gt615/Kconfig"
+source "drivers/input/touchscreen/pop45/ft3427/Kconfig"
+#[Feature] Add End by hong.lan@tcl.com touch panel driver 2015/12/03
+#[Feature] Add Begin by hong.lan@tcl.com for touchpanel driver Pixi445SPR 2015/12/11 PR:359508
+config FT3307_TOUCHSCREEN_DRIVER 
+	bool "FocalTech ft3307 touchpanel driver"
+	depends on I2C
+	default y
+	help
+	  Say Y here if you have a FocalTech ft3307 touchscreen.
+	  ft3307 controllers are multi touch controllers which can
+	  report some touches at a time.
+
+          If unsure, say N.
+source "drivers/input/touchscreen/Pixi445SPR/ft3307/Kconfig"
+#[Feature] Add End by hong.lan@tcl.com for touchpanel driver Pixi445SPR 2015/12/11 PR:359508
+
 endif

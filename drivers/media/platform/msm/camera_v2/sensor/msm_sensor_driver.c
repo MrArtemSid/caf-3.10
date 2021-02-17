@@ -17,7 +17,18 @@
 #include "camera.h"
 #include "msm_cci.h"
 #include "msm_camera_dt_util.h"
-
+//add by weicai.long@tcl.com
+#include "ov8858_otp.h"
+//SZ xuejian.zhong@tcl.com add 2016.03.07
+#if defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+#include "ov5670_otp.h"
+#endif
+//end
+//add by jin.xia
+#include "s5k4h8_otp_truly.h"
+//Begin add by (TCTSZ) jin.xia@tcl.com for camera engineer mode, 2015-11-24
+#include "camera_tct_func.h"
+//End add
 /* Logging macro */
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -901,6 +912,100 @@ int32_t msm_sensor_driver_probe(void *setting,
 		goto free_camera_info;
 	}
 
+    //add by weicai.long@tcl.com, if mid is 0x06 and sensor name is not "ov8858_qtech",stop load not qtech driver.
+#ifdef CONFIG_OV8858_OTP
+    if(0x8858 == slave_info->sensor_id_info.sensor_id){
+        uint16_t mid = ov8858_otp_get_mid(s_ctrl);
+        if(OV8858_MID_QTECH == mid && strcmp(slave_info->sensor_name, "ov8858_qtech")){
+            pr_err("%s, driver=%s, stop load.\n", __func__, slave_info->sensor_name);
+            rc = -EINVAL;
+            goto camera_power_down;
+        }
+		//SZ xuejian.zhong@tcl.com add 2016.03.07
+		#if defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+		else if(OV8858_MID_SUNNY != mid && 0 == strcmp(slave_info->sensor_name, "ov8858_sunny")){
+            pr_err("%s, driver=%s, stop load.\n", __func__, slave_info->sensor_name);
+            rc = -EINVAL;
+            goto camera_power_down;
+        }else if (OV8858_MID_SUNRISE != mid && 0 == strcmp(slave_info->sensor_name, "ov8858_sunrise")) {
+        	  pr_err("%s, driver=%s, stop load.\n", __func__, slave_info->sensor_name);
+            rc = -EINVAL;
+            goto camera_power_down;
+        }
+		#endif
+		//end
+		
+    }
+#endif
+	//SZ xuejian.zhong@tcl.com add 2016.03.07
+#if defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+#ifdef CONFIG_OV5670_OTP
+
+    if(0x5670 == slave_info->sensor_id_info.sensor_id){
+	
+        uint16_t mid = ov5670_otp_get_mid(s_ctrl);
+		
+        if(OV5670_MID_QTECH != mid && 0 == strcmp(slave_info->sensor_name, "ov5670_qtech")){
+            pr_err("%s, driver=%s, stop load.\n", __func__, slave_info->sensor_name);
+            rc = -EINVAL;
+            goto camera_power_down;
+        }else if (OV5670_MID_EWELLY != mid && 0 == strcmp(slave_info->sensor_name, "ov5670_ewelly")) {
+        	  pr_err("%s, driver=%s, stop load.\n", __func__, slave_info->sensor_name);
+            rc = -EINVAL;
+            goto camera_power_down;
+        }
+	
+    }
+#endif
+#endif
+//end
+    /*add by jin.xia@tcl.com
+         * if mid =0x02 module is truly
+         * if mid =       module is sunny
+         */  
+#ifdef CONFIG_S5K4H8_TRULY_OTP
+        //pr_err("%s config 4h8 truly otp \n",__func__);
+		if(0x4088 == slave_info->sensor_id_info.sensor_id){
+			uint16_t mid = s5k4h8_otp_get_mid(s_ctrl);
+			pr_err("%s, driver=%s, MID=0x%x\n", __func__, slave_info->sensor_name,mid);
+			//mod by zhaohong.chen@tcl.com for pixi4554g s5k4h8 truly sensor, 2016-03-16
+			if(0x02 == mid && strstr(slave_info->sensor_name,"s5k4h8_truly"))
+			{
+				//truly
+                		pr_err("%s probe ", slave_info->sensor_name);
+			}
+			else
+			{
+				//sunuy
+				pr_err("%s, driver=%s, stop load.\n", __func__, slave_info->sensor_name);
+				rc = -EINVAL;
+				goto camera_power_down;
+			}
+		}
+#endif
+
+//[Begin][pixi4554g front camera sp2509 module kingcome/sunrise][weicai.long@tcl.com 16/03/2016]
+#ifdef JRD_PROJECT_PIXI4554G
+    if(0x2509 == slave_info->sensor_id_info.sensor_id){
+        int rc_id = 0;
+        uint16_t gpio_id = s_ctrl->sensordata->power_info.gpio_conf->gpio_num_info->gpio_num[SENSOR_GPIO_CUSTOM1];
+        rc_id = gpio_request_one(gpio_id, GPIOF_DIR_IN, "CAM_GPIO_ID");
+        if(0 == rc_id){
+            int value_id = gpio_get_value_cansleep(gpio_id);
+            gpio_free(gpio_id);
+            if((0 == value_id && strcmp(slave_info->sensor_name, "sp2509_kingcome_pixi4554g")) ||
+                (0 < value_id && strcmp(slave_info->sensor_name, "sp2509_sunrise_pixi4554g"))
+                ){
+                pr_err("%s, gpio%d:%d, name:%s, stop load\n", __FUNCTION__, 
+                    gpio_id, value_id, slave_info->sensor_name);
+                rc = -EINVAL;
+                goto camera_power_down;
+            }
+        }
+    }
+#endif //JRD_PROJECT_PIXI4554G
+//[End][pixi4554g front camera sp2509 module kingcome/sunrise][weicai.long@tcl.com 16/03/2016]
+    
 	pr_err("%s probe succeeded", slave_info->sensor_name);
 
 	/*
@@ -961,6 +1066,10 @@ int32_t msm_sensor_driver_probe(void *setting,
 
 	msm_sensor_fill_sensor_info(s_ctrl, probed_info, entity_name);
 
+	//Begin add by (TCTSZ) jin.xia@tcl.com for camera engineer mode, 2015-11-24
+	if(s_ctrl->is_probe_succeed)
+		sensor_sysfs_init(slave_info->sensor_name,(int)(s_ctrl->sensordata->sensor_info->position));
+	//End add
 	return rc;
 
 camera_power_down:
@@ -1370,6 +1479,9 @@ static int __init msm_sensor_driver_init(void)
 	int32_t rc = 0;
 
 	CDBG("Enter");
+	//Begin add by (TCTSZ) zhaohong.chen@tcl.com
+	printk(KERN_ERR"-->%s\n",__func__);
+	//End add
 	rc = platform_driver_probe(&msm_sensor_platform_driver,
 		msm_sensor_driver_platform_probe);
 	if (!rc) {

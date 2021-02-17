@@ -28,8 +28,34 @@
 #include "board-dt.h"
 #include "platsmp.h"
 
+//[Feature]-Add-BEGIN by TCTSZ. add ramoops and watchdog memdump. xiaoju.liang@tcl.com, 2015/07/14, for [Task-403392]
+#ifdef CONFIG_TCT_LOG_RAMOOPS
+extern int ramoops_memblock_reserve(void);
+#endif
+#ifdef CONFIG_TCT_WDOG_DUMP
+extern int wdog_dump_memblock_reserve(void);
+#endif
+//[Feature]-Add-END by TCTSZ. xiaoju.liang@tcl.com, 2015/07/14, for [Task-403392]
+//add by junfeng.zhou for add sbl1 log begin .
+#ifdef CONFIG_TCT_DEBUG_MORELOG
+extern int morelog_dump_memblock_reserve(void);
+#endif
+//add by junfeng.zhou for add sbl1 log end .
 static void __init msm8909_dt_reserve(void)
 {
+//[Feature]-Add-BEGIN by TCTSZ. add ramoops and watchdog memdump. xiaoju.liang@tcl.com, 2015/07/14, for [Task-403392]
+#ifdef CONFIG_TCT_LOG_RAMOOPS
+	ramoops_memblock_reserve();
+#endif
+#ifdef CONFIG_TCT_WDOG_DUMP
+	wdog_dump_memblock_reserve();
+#endif
+//[Feature]-Add-END by TCTSZ. xiaoju.liang@tcl.com, 2015/07/14, for [Task-403392]
+//add by junfeng.zhou for add sbl1 log begin .
+#ifdef CONFIG_TCT_DEBUG_MORELOG
+	morelog_dump_memblock_reserve();
+#endif
+//add by junfeng.zhou for add sbl1 log end .
 	of_scan_flat_dt(dt_scan_for_memory_reserve, NULL);
 }
 

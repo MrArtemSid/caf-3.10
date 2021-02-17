@@ -2208,6 +2208,11 @@ config ARM_DECOMPRESSOR_LIMIT
 	  with read, write and execute permissions and reset of the memory
 	  as strongly ordered.
 
+config JRD_PROJECT_POP455CTMO
+	depends on ARCH_MSM8909
+	bool "MSM8909 POP445CTMO"
+	help
+		Support for the TCT POP445CTMO device
 endmenu
 
 menu "CPU Power Management"

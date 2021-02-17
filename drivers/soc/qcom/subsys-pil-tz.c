@@ -746,6 +746,11 @@ static void log_failure_reason(const struct pil_tz_data *d)
 	u32 size;
 	char *smem_reason, reason[MAX_SSR_REASON_LEN];
 	const char *name = d->subsys_desc.name;
+	//add by (TCTSZ) wenzhao.guo@tcl.com for RAMdump UI begin
+#ifdef CONFIG_JRD_RAMDUMP_UI
+	char *smem_reason_other;
+#endif
+	//add by (TCTSZ) wenzhao.guo@tcl.com for RAMdump UI end
 
 	if (d->smem_id == -1)
 		return;
@@ -764,6 +769,17 @@ static void log_failure_reason(const struct pil_tz_data *d)
 
 	strlcpy(reason, smem_reason, min(size, MAX_SSR_REASON_LEN));
 	pr_err("%s subsystem failure reason: %s.\n", name, reason);
+	//add by (TCTSZ) wenzhao.guo@tcl.com for RAMdump UI begin
+#ifdef CONFIG_JRD_RAMDUMP_UI
+	smem_reason_other = smem_alloc(SMEM_SSR_REASON_OTHER, 15*sizeof(unsigned int), 0, SMEM_ANY_HOST_FLAG);
+	if(smem_reason_other == NULL)
+		pr_err("SMEM_SSR_REASON_OTHER smem_alloc failed!\n");
+	else {
+		snprintf(smem_reason_other, strlen(reason) + 1, "%s", reason);
+		printk("Save wcnss/venus crash reason to smem done!\n");
+	}
+#endif
+	//add by (TCTSZ) wenzhao.guo@tcl.com for RAMdump UI end
 
 	smem_reason[0] = '\0';
 	wmb();

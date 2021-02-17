@@ -72,6 +72,9 @@ obj-$(CONFIG_SENSORS_CAPELLA_CM36283)	+= cm36283.o
 obj-$(CONFIG_SENSORS_MPU6050)		+= mpu6050.o
 obj-$(CONFIG_SENSORS_AKM8963)		+= akm8963.o
 obj-$(CONFIG_SENSORS_AKM09911)		+= akm09911.o
+# add begin by haimei.liu@tcl.com for AKM09916 compass driver 2015/11/24 for task858871
+obj-$(CONFIG_SENSORS_AKM09916)		+= akm09916.o
+# add end by haimei.liu@tcl.com for AKM09916 compass driver 2015/11/24 for task858871
 obj-$(CONFIG_SENSORS_LIS3DH)		+= lis3dh_acc.o
 obj-$(CONFIG_SENSORS_AP3426)		+= ap3426.o
 obj-$(CONFIG_SENSORS_BMA2X2)	+= bstclass.o
@@ -86,3 +89,37 @@ endif
 ifeq ($(CONFIG_BOSCH_BMA2X2_ENABLE_INT2),y)
 	EXTRA_CFLAGS += -DBMA2X2_ENABLE_INT2
 endif
+
+#[Feature]-Add-BEGIN by TCTSZ. yongzhong.cheng@tcl.com, 2015/6/24, for ALM386664:add hall sensor driver
+obj-$(CONFIG_SENSORS_HALL)       += hall.o
+#[Feature]-Add-END by TCTSZ. yongzhong.cheng@TCL.com, 2015/6/24, for   ALM386664
+
+#[Feature]-Add-BEGIN by TCTSZ. ning.wei@tcl.com, 2015/10/12, for ALM717154 add p/l sensor driver
+obj-$(CONFIG_SENSORS_STK3X1X_TCT)	+= stk3x1x_tct.o
+obj-$(CONFIG_SENSORS_EPL259X)	+= epl259x.o
+#[Feature]-Add-END by TCTSZ. ning.wei@TCL.com, 2015/10/12, for   ALM717154
+# [Feature]-Add-BEGIN by TCTSZ. weigeng.huang@tcl.com, add gpio and spmi interface for engineer mode driver , 2015/11/03, ALM:859179 
+obj-$(CONFIG_EMODE_GPIO)    += emode_gpio.o
+# [Feature]-Add-END by TCTSZ. weigeng.huang@tcl.com, add gpio and spmi interface for engineer mode driver , 2015/11/03,ALM: 859179 
+#add by shengwang.luo for ST accelerometer sensor begin, 20141226
+obj-$(CONFIG_SENSORS_LIS2DE)	+= lis2de_acc.o
+#add by shengwang.luo for ST accelerometer sensor end, 20141226
+#Add Sensor drvier for Pixi445Cricket by TCT-CD ke.li@tcl.com   2015.2.17   Begin
+obj-$(CONFIG_PIXI445CRICKET)	+= pixi445c/
+#Add Sensor drvier for Pixi445Cricket by TCT-CD ke.li@tcl.com   2015.2.17   End
+#[Feature]-Add-BEGIN by TCTSZ. shengwang.luo@tcl.com, add mmc3530kj driver, 2015/11/20
+obj-$(CONFIG_SENSORS_MMC3530KJ)	+= mmc3530/
+#[Feature]-Add-END by TCTSZ. shengwang.luo@tcl.com, 2015/11/20
+
+#[Feature]-Add-BEGIN by TCTSZ. falin.luo@tcl.com, add lis2de g-sensor driver, 2015/12/21
+obj-$(CONFIG_SENSORS_LIS2DE_TCT)       += lis2de_tct.o
+#[Feature]-Add-END by TCTSZ falin.luo@tcl.com, add lis2de g-sensor driver,  2015/12/21
+
+# add begin by haimei.liu@tcl.com for AKM0991x compass driver 
+obj-$(CONFIG_SENSORS_AKM0991x)		+= akm0991x.o
+# add end by haimei.liu@tcl.com for AKM0991x compass driver 
+
+# add begin by weigeng.huang@tcl.com for p-sensor driver
+obj-$(CONFIG_PIXI445SPR_STK3X1X)   += Pixi445SPR/
+# add end by weigeng.huang@tcl.com for p-senosr driver
+

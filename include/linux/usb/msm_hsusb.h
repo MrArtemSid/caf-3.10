@@ -103,12 +103,21 @@ enum msm_usb_phy_type {
 	SNPS_PICO_PHY,
 	SNPS_FEMTO_PHY,
 };
-
+//[Feature]-Add-BEGIN by TCTSZ.for shutdown charging baili.ouyang.sz@tcl.com, 2015/6/24, for PR369037
+#if defined (JRD_PROJECT_POP45C)||defined (JRD_PROJECT_POP455C)||defined (JRD_PROJECT_PIXI3454GSPR)||defined (JRD_PROJECT_POP45) || defined (JRD_PROJECT_GOPLAY2) || defined(JRD_PROJECT_PIXI445SPR)|| defined(JRD_PROJECT_PIXI4554G)
+#define IDEV_CHG_MAX	1200
+#else
 #define IDEV_CHG_MAX	1500
+#endif
 #define IDEV_CHG_MIN	500
 #define IUNIT		100
 
+#if defined (JRD_PROJECT_POP45C)||defined (JRD_PROJECT_POP455C)||defined (JRD_PROJECT_PIXI3454GSPR)||defined (JRD_PROJECT_POP45) || defined (JRD_PROJECT_GOPLAY2) || defined(JRD_PROJECT_PIXI445SPR) || defined(JRD_PROJECT_PIXI4554G)
+#define IDEV_ACA_CHG_MAX	1200
+#else
 #define IDEV_ACA_CHG_MAX	1500
+#endif
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/6/24, for PR369037
 #define IDEV_ACA_CHG_LIMIT	500
 
 /**

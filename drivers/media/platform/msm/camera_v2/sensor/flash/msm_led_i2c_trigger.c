@@ -24,11 +24,12 @@
 #define FLASH_NAME "camera-led-flash"
 #define CAM_FLASH_PINCTRL_STATE_SLEEP "cam_flash_suspend"
 #define CAM_FLASH_PINCTRL_STATE_DEFAULT "cam_flash_default"
-/*#define CONFIG_MSMB_CAMERA_DEBUG*/
+//#define CONFIG_MSMB_CAMERA_DEBUG
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 static void *g_fctrl;
+
 int32_t msm_led_i2c_trigger_get_subdev_id(struct msm_led_flash_ctrl_t *fctrl,
 	void *arg)
 {
@@ -719,7 +720,34 @@ static void msm_led_i2c_torch_brightness_set(struct led_classdev *led_cdev,
 		return;
 
 	fctrl = (struct msm_led_flash_ctrl_t *) g_fctrl;
-
+	
+	/*[BUGFIX]-Mod-BEGIN by TCTSZ.(gaoxiang.zou@tcl.com),  12/21/2015*/
+	//Mod by zhaohong.chen@tcl.com for GOPLAY2 flashlight sgm3784 driver
+	#if defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET) || defined(JRD_PROJECT_GOPLAY2)
+	if (value > LED_OFF && value <= LED_FULL)
+	{
+		if (fctrl->func_tbl->flash_led_init)
+			fctrl->func_tbl->flash_led_init(fctrl);
+		
+		if (value > LED_HALF) 
+		{
+			if (fctrl->func_tbl->flash_led_high)
+				fctrl->func_tbl->flash_led_high(fctrl);
+		}
+		else if (value > LED_OFF) 
+		{
+			if (fctrl->func_tbl->flash_led_low)
+				fctrl->func_tbl->flash_led_low(fctrl);
+		}
+	}
+	else 
+	{
+		if (fctrl->func_tbl->flash_led_off)
+			fctrl->func_tbl->flash_led_off(fctrl);
+		if (fctrl->func_tbl->flash_led_release)
+			fctrl->func_tbl->flash_led_release(fctrl);
+	}
+	#else 
 	if (value > LED_OFF) {
 		if (fctrl->func_tbl->flash_led_init)
 			fctrl->func_tbl->flash_led_init(fctrl);
@@ -731,6 +759,8 @@ static void msm_led_i2c_torch_brightness_set(struct led_classdev *led_cdev,
 		if (fctrl->func_tbl->flash_led_release)
 			fctrl->func_tbl->flash_led_release(fctrl);
 	}
+	#endif
+	//End mod
 };
 
 static struct led_classdev msm_torch_i2c_led = {
@@ -758,9 +788,11 @@ int msm_flash_i2c_probe(struct i2c_client *client,
 {
 	int rc = 0;
 	struct msm_led_flash_ctrl_t *fctrl = NULL;
+
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dentry;
 #endif
+
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		pr_err("i2c_check_functionality failed\n");
 		goto probe_failure;
@@ -775,13 +807,14 @@ int msm_flash_i2c_probe(struct i2c_client *client,
 	/* Assign name for sub device */
 	snprintf(fctrl->msm_sd.sd.name, sizeof(fctrl->msm_sd.sd.name),
 		"%s", id->name);
+	
 
 	rc = msm_led_get_dt_data(client->dev.of_node, fctrl);
 	if (rc < 0) {
 		pr_err("%s failed line %d\n", __func__, __LINE__);
 		return rc;
 	}
-
+	
 	if (fctrl->pinctrl_info.use_pinctrl == true)
 		msm_flash_pinctrl_init(fctrl);
 
@@ -801,7 +834,7 @@ int msm_flash_i2c_probe(struct i2c_client *client,
 	if (!fctrl->flash_i2c_client->i2c_func_tbl)
 		fctrl->flash_i2c_client->i2c_func_tbl =
 			&msm_sensor_qup_func_tbl;
-
+	
 	rc = msm_led_i2c_flash_create_v4lsubdev(fctrl);
 #ifdef CONFIG_DEBUG_FS
 	dentry = debugfs_create_file("ledflash", S_IRUGO, NULL, (void *)fctrl,
@@ -809,13 +842,19 @@ int msm_flash_i2c_probe(struct i2c_client *client,
 	if (!dentry)
 		pr_err("Failed to create the debugfs ledflash file");
 #endif
+
 	/* Assign Global flash control sturcture for local usage */
 	g_fctrl = (void *) fctrl;
+
+	//Begin mod by zhaohong.chen@tcl.com for POP45 sy7806 flashlight, 20151221
+	#ifndef JRD_PROJECT_POP45
 	rc = msm_i2c_torch_create_classdev(&(client->dev), NULL);
 	if (rc) {
 		pr_err("%s failed to create classdev %d\n", __func__, __LINE__);
 		return rc;
 	}
+	#endif
+
 	CDBG("%s:%d probe success\n", __func__, __LINE__);
 	return 0;
 
@@ -886,6 +925,7 @@ int msm_flash_probe(struct platform_device *pdev,
 
 	/* Assign Global flash control sturcture for local usage */
 	g_fctrl = (void *)fctrl;
+	
 	rc = msm_i2c_torch_create_classdev(&(pdev->dev), NULL);
 	if (rc) {
 		pr_err("%s failed to create classdev %d\n", __func__, __LINE__);

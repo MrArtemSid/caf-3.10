@@ -20,7 +20,9 @@ struct battery_params {
 	int slope;
 	int fcc_mah;
 };
-
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom forchange slope baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+int get_battery_voltage_lib(void );//add by junfeng.zhou for change slope . 20150414
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 /*  IOCTLs to query battery profile data */
 #define BPIOCXSOC	_IOWR('B', 0x01, struct battery_params) /* SOC */
 #define BPIOCXRBATT	_IOWR('B', 0x02, struct battery_params) /* RBATT SF */

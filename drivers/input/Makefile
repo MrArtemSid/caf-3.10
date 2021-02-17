@@ -29,3 +29,15 @@ obj-$(CONFIG_INPUT_KEYRESET)	+= keyreset.o
 obj-$(CONFIG_INPUT_KEYCOMBO)	+= keycombo.o
 obj-$(CONFIG_SENSORS_HALL)	+= hall_sensor.o
 
+#[Feature]-BEGIN by TCTSZ.yongzhong.cheng@tcl.com,2015/8/26,for 538697:add gryoscope bmg160 driver
+obj-$(CONFIG_GRYOSCOPE_BMG160)	+= bmg160/
+#[Feature]-END by TCTSZ.yongzhong.cheng@tcl.com, 2015/8/26,for  538697
+
+#yongzhong.cheng@tcl.com,task1401030,2016/1/12,enable pressure sensor
+obj-$(CONFIG_PRESSURE_BMP280)  += bmp280/
+#yongzhong.cheng@tcl.com,task1401030,2016/1/12,enable pressure sensor
+
+#yongzhong.cheng@tcl.com,2016/4/12,defect 1938927,G-sensor and Gyro-sensor 2in1 bmi120
+obj-$(CONFIG_ACC_GRYO_BMI120)	+= bmi120/
+#yongzhong.cheng@tcl.com,2016/4/12,defect 1938927,G-sensor and Gyro-sensor 2in1 bmi120
+

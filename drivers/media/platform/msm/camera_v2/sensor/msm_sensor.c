@@ -17,9 +17,22 @@
 #include "msm_camera_i2c_mux.h"
 #include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/regulator/consumer.h>
+//add by weicai.long@tcl.com, otp feature.
+#include "ov8858_otp.h"
+#include "ov5670_otp.h"
+#include "s5k4h8_otp.h"
+#include "s5k5e8_otp.h"
+#include "ov8865_otp.h"
+#include "s5k4h8_otp_truly.h"
+#include "ov8856_otp.h"
+#include "hi553_kingcome_otp.h"
+//Begin add by (TCTSZ) jin.xia@tcl.com for camera engineer mode, 2015-11-24
+#include "camera_tct_func.h"
+//End add
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
+
 
 static struct v4l2_file_operations msm_sensor_v4l2_subdev_fops;
 static void msm_sensor_adjust_mclk(struct msm_camera_power_ctrl_t *ctrl)
@@ -272,6 +285,10 @@ static int32_t msm_sensor_get_dt_data(struct device_node *of_node,
 			goto FREE_GPIO_SET_TBL;
 		}
 	}
+//tct qiang.chen  add for camera module id pin 20151211 begin
+    sensordata->module_id_pin = of_get_named_gpio_flags(of_node,   "qcom,module-id-gpio", 0, NULL);
+    pr_err("%s camera module_id_pin =%d \n", __func__,sensordata->module_id_pin);
+//tct qiang.chen  add for camera module id pin 20151211 end 
 	rc = msm_sensor_get_dt_actuator_data(of_node,
 					     &sensordata->actuator_info);
 	if (rc < 0) {
@@ -517,12 +534,16 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
-	CDBG("%s: read id: 0x%x expected id 0x%x:\n", __func__, chipid,
-		slave_info->sensor_id);
+	
+	//mod by weicai.long@tcl.com, debug log.
+	pr_err("%s, read id=0x%x, expected id=0x%x\n",__func__, chipid, slave_info->sensor_id);
+	//Begin add by (TCTSZ) jin.xia@tcl.com for camera engineer mode, 2015-11-24
+	cur_sensor_update(s_ctrl);
+	//End add
 	if (chipid != slave_info->sensor_id) {
 		pr_err("msm_sensor_match_id chip id doesnot match\n");
 		return -ENODEV;
-	}
+	} 
 	return rc;
 }
 
@@ -579,6 +600,55 @@ static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 	case MSM_SD_SHUTDOWN:
 		msm_sensor_stop_stream(s_ctrl);
 		return 0;
+    //add by weicai.long@tcl.com, otp feature.
+    case VIDIOC_MSM_OTP_CFG:
+#ifdef CONFIG_OV8858_OTP
+        if(0x8858 == s_ctrl->sensordata->slave_info->sensor_id){
+            ov8858_otp_config(s_ctrl);
+        }
+#endif
+#ifdef CONFIG_OV5670_OTP
+        if(0x5670 == s_ctrl->sensordata->slave_info->sensor_id){
+            ov5670_otp_config(s_ctrl);
+        }
+#endif
+#ifdef CONFIG_S5K4H8_OTP
+        if(0x4088 == s_ctrl->sensordata->slave_info->sensor_id){
+            s5k4h8_otp_config(s_ctrl);
+        }
+#endif
+#ifdef CONFIG_S5K4H8_TRULY_OTP
+        //pr_err("%s config 4h8 truly otp",__func__);
+        if(0x4088 == s_ctrl->sensordata->slave_info->sensor_id){
+            s5k4h8_otp_config(s_ctrl);
+        }
+#endif
+
+#ifdef CONFIG_OV8856_SUNNY_OTP
+        if(0x885a == s_ctrl->sensordata->slave_info->sensor_id){
+            ov8856_otp_config(s_ctrl);
+        }
+#endif
+
+#ifdef CONFIG_S5K5E8_OTP
+        if(0x5e80 == s_ctrl->sensordata->slave_info->sensor_id){
+            s5k5e8_otp_config(s_ctrl);
+        }
+#endif
+#ifdef CONFIG_OV8865_OTP
+        if(0x8865 == s_ctrl->sensordata->slave_info->sensor_id){
+            ov8865_otp_config(s_ctrl);
+        }
+#endif
+
+#ifdef CONFIG_HI553_KINGCOME_OTP
+        if(0x0553 == s_ctrl->sensordata->slave_info->sensor_id){
+            hi553_otp_config(s_ctrl);
+        }
+#endif
+
+
+        return 0;
 	case MSM_SD_NOTIFY_FREEZE:
 		return 0;
 	default:
@@ -1602,7 +1672,11 @@ int msm_sensor_i2c_probe(struct i2c_client *client,
 		return rc;
 	}
 
-	CDBG("%s %s probe succeeded\n", __func__, client->name);
+	pr_err("%s %s probe succeeded\n", __func__, client->name); // Enable log by zhaohong.chen@tcl.com 
+	//Begin add by zhaohong.chen for sensor node info
+	sensor_sysfs_init(client->name,(int)(s_ctrl->sensordata->sensor_info->position));
+	//End add
+
 	snprintf(s_ctrl->msm_sd.sd.name,
 		sizeof(s_ctrl->msm_sd.sd.name), "%s", id->name);
 	v4l2_i2c_subdev_init(&s_ctrl->msm_sd.sd, client,

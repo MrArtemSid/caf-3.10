@@ -476,6 +476,16 @@ struct input_keymap_entry {
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
+//[Feature]-Add-BEGIN by TCTSZ. yongzhong.cheng@tcl.com, 2015/6/24, for ALM386664:add hall sensor driver
+#define KEY_UNLOCK		249
+#define KEY_UNLOCK_COVER        250     /* 250, for LED/window cover type, unlock  */
+#define KEY_LOCK_LED_COVER      251     /* 251, for LED cover type, lock  */
+//[Feature]-Add-END by TCTSZ. yongzhong.cheng@TCL.com, 2015/6/24, for   ALM386664
+
+//[Feature]-Add-BEGIN by TCTSZ. weigeng.huang@tcl.com, 2015/11/12, for modify APP_SWITCH  instead of MENU key
+#define KEY_APP_SWITCH 580 
+//[Feature]-Add-END by TCTSZ. weigeng.huang@tcl.com, 2015/11/12, for modify APP_SWITCH  instead of MENU key
+
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
 #define BTN_MISC		0x100

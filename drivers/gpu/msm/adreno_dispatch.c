@@ -57,8 +57,10 @@ static unsigned int _dispatcher_q_inflight_hi = 15;
  */
 static unsigned int _dispatcher_q_inflight_lo = 4;
 
+//modify by qian.zhou.sz@tcl.com, from 2000 to 8000 for defect:1710425
 /* Command batch timeout (in milliseconds) */
-static unsigned int _cmdbatch_timeout = 2000;
+static unsigned int _cmdbatch_timeout = 8000;
+//end modify
 
 /* Interval for reading and comparing fault detection registers */
 static unsigned int _fault_timer_interval = 200;

@@ -54,6 +54,7 @@
 #define SEC_MI2S_ID	(1 << 1)
 #define TER_MI2S_ID	(1 << 2)
 #define QUAT_MI2S_ID (1 << 3)
+#define QUAT_SEC_MI2S_ID (QUAT_MI2S_ID | SEC_MI2S_ID) //Add by TCTSZ. yuchao.pan@tcl.com, configure TFA9888UK and AK4375AECB in machine driver, 20160114
 
 #define LPASS_CSR_GP_IO_MUX_MIC_CTL 0x07702000
 #define LPASS_CSR_GP_IO_MUX_SPKR_CTL 0x07702004
@@ -114,7 +115,13 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.key_code[5] = 0,
 	.key_code[6] = 0,
 	.key_code[7] = 0,
+	//[FIX PR:1908992/1915775]-begin by JRD_SZ(buqing.wang@tcl.com),Audio connector plug into the phone, could not find a headphone is inserted, not audio output, 4/9/2016
+	#if defined (JRD_PROJECT_POP45) || defined (JRD_PROJECT_POP455C)
+	.linein_th = 30000,
+	#else
 	.linein_th = 5000,
+	#endif
+	//[FIX PR:1908992/1915775]-end by JRD_SZ(buqing.wang@tcl.com),Audio connector plug into the phone, could not find a headphone is inserted, not audio output, 4/9/2016
 };
 
 static struct wcd_mbhc_config wcd_mbhc_cfg = {
@@ -1044,6 +1051,100 @@ static int msm_btsco_rate_put(struct snd_kcontrol *kcontrol,
 	pr_debug("%s: msm_btsco_rate = %d\n", __func__, msm_btsco_rate);
 	return 0;
 }
+//Modify-Begin by TCTSZ. yuchao.pan@tcl.com, configure TFA9888UK in machine driver, 20160114
+#if defined (JRD_PROJECT_GOPLAY2)
+static int msm_q6_enable_mi2s_clocks(bool enable)
+{
+    union afe_port_config port_config;
+    int rc = 0;
+
+    printk(KERN_ERR "set msm_q6_enable_mi2s_clocks =%d\n", enable);
+    if(enable){
+        port_config.i2s.channel_mode = AFE_PORT_I2S_SD0;
+        port_config.i2s.mono_stereo = MSM_AFE_CH_STEREO;
+        port_config.i2s.data_format= 0;
+        port_config.i2s.bit_width = 16; //if you want to use 16bit, please set it 16bit
+        port_config.i2s.reserved= 0;
+        port_config.i2s.i2s_cfg_minor_version = AFE_API_VERSION_I2S_CONFIG;
+        port_config.i2s.sample_rate = 48000;
+        port_config.i2s.ws_src = 1;
+        rc = afe_port_start(AFE_PORT_ID_QUATERNARY_MI2S_RX, &port_config, 48000);
+        if (IS_ERR_VALUE(rc)){
+            printk(KERN_ERR "fail to open AFE port\n");
+            return -EINVAL;
+        }
+    }else{
+        rc = afe_close(AFE_PORT_ID_QUATERNARY_MI2S_RX);
+        if (IS_ERR_VALUE(rc)){
+            printk(KERN_ERR "fail to close AFE port\n");
+            return -EINVAL;
+        }
+    }
+
+    return rc;
+}
+
+static int quat_mi2s_sclk_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int quat_mi2s_sclk_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+    int enable;
+
+	enable = ucontrol->value.integer.value[0];
+    printk(KERN_ERR"%s: %d\n", __func__, enable);
+	switch (enable) {
+	case 1:
+        ret = pinctrl_select_state(pinctrl_info.pinctrl,
+					pinctrl_info.cdc_lines_act);
+		if (ret < 0) {
+			printk(KERN_ERR"failed to enable sec mi2s gpios\n");
+		}
+
+      printk(KERN_ERR"%s: %d\n", __func__, mi2s_rx_bit_format);
+      if (mi2s_rx_bit_format == SNDRV_PCM_FORMAT_S24_LE)
+			mi2s_rx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_3_P072_MHZ;
+		else
+			mi2s_rx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
+		ret = afe_set_lpass_clock(AFE_PORT_ID_QUATERNARY_MI2S_RX,
+					  &mi2s_rx_clk);
+        if (ret < 0)
+			printk(KERN_ERR"%s:afe_set_lpass_clock failed\n", __func__);
+
+        //and then enable it with correct mi2s playback configuration
+        msm_q6_enable_mi2s_clocks(1);
+
+		break;
+	case 0:
+		msm_q6_enable_mi2s_clocks(0); /*qingshen added*/
+		mi2s_rx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
+		mi2s_rx_clk.clk_val2 = Q6AFE_LPASS_OSR_CLK_DISABLE; /*qingshen added*/ 
+		ret = afe_set_lpass_clock(AFE_PORT_ID_QUATERNARY_MI2S_RX,
+					  &mi2s_rx_clk);
+        if (ret < 0)
+			pr_err("%s:afe_set_lpass_clock failed\n", __func__);
+
+
+        ret = pinctrl_select_state(pinctrl_info.pinctrl,
+                            pinctrl_info.cdc_lines_sus);
+        if (ret < 0) {
+            pr_err("failed to disable sec mi2s gpios\n");
+        }
+
+        break;
+	default:
+		pr_err("%s: Unexpected input value\n", __func__);
+		break;
+	}
+	return ret;
+}
+#endif
+//Modify-End by TCTSZ. yuchao.pan@tcl.com, configure TFA9888UK in machine driver, 20160114
 
 static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, rx_bit_format_text),
@@ -1071,6 +1172,12 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 		     msm_btsco_rate_get, msm_btsco_rate_put),
 	SOC_ENUM_EXT("RX SampleRate", msm_snd_enum[3],
 			pri_rx_sample_rate_get, pri_rx_sample_rate_put),
+//Modify-Begin by TCTSZ. yuchao.pan@tcl.com, configure TFA9888UK in machine driver, 20160114
+#if defined (JRD_PROJECT_GOPLAY2)
+	SOC_ENUM_EXT("QUAT_MI2S_RX MCLK", msm_snd_enum[2],
+			quat_mi2s_sclk_get, quat_mi2s_sclk_put),
+#endif
+//Modify-End by TCTSZ. yuchao.pan@tcl.com, configure TFA9888UK in machine driver, 20160114
 };
 
 static int msm8x16_mclk_event(struct snd_soc_dapm_widget *w,
@@ -1494,7 +1601,14 @@ static int conf_int_codec_mux(struct msm8916_asoc_mach_data *pdata)
 	 */
 	vaddr = pdata->vaddr_gpio_mux_spkr_ctl;
 	val = ioread32(vaddr);
+
+//Modify-Begin by TCTSZ. yuchao.pan@tcl.com, configure TFA9888UK in machine driver, 20160114
+#if defined (JRD_PROJECT_GOPLAY2)
+	val = val | 0x00010002;
+#else
 	val = val | 0x00030300;
+#endif	
+//Modify-End by TCTSZ. yuchao.pan@tcl.com, configure TFA9888UK in machine driver, 20160114
 	iowrite32(val, vaddr);
 
 	vaddr = pdata->vaddr_gpio_mux_mic_ctl;
@@ -1836,8 +1950,15 @@ static struct snd_soc_dai_link msm8x16_wcd_dai[] = {
 		.stream_name = "Quaternary MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.3",
 		.platform_name = "msm-pcm-routing",
+//Modify-Begin by TCTSZ. yuchao.pan@tcl.com, configure TFA9888UK in machine driver, 20160114
+#if defined (JRD_PROJECT_GOPLAY2)
+		.codec_dai_name = "tfa98xx-aif-6-34",
+		.codec_name = "tfa98xx.6-0034",
+#else
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
+#endif
+//Modify-End by TCTSZ. yuchao.pan@tcl.com, configure TFA9888UK in machine driver, 20160114	
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
@@ -1877,8 +1998,15 @@ static struct snd_soc_dai_link msm8x16_wcd_dai[] = {
 		.stream_name = "Secondary MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.1",
 		.platform_name = "msm-pcm-routing",
+//Modify-Begin by TCTSZ. yuchao.pan@tcl.com, configure AK4375AECB in machine driver, 20160114		
+#if defined (JRD_PROJECT_GOPLAY2)
+		.codec_name = "akm-akm4375",
+		.codec_dai_name = "ak4375-AIF1",
+#else
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-rx",
+#endif
+//Modify-End by TCTSZ. yuchao.pan@tcl.com, configure AK4375AECB in machine driver, 20160114		
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_SECONDARY_MI2S_RX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
@@ -2672,6 +2800,24 @@ int get_cdc_gpio_lines(struct pinctrl *pinctrl, int ext_pa)
 		if (ret < 0)
 			pr_err("failed to enable codec gpios\n");
 		break;
+//Modify-Begin by TCTSZ. yuchao.pan@tcl.com, configure extern I2S for TFA9888UK, 20160114
+	case QUAT_SEC_MI2S_ID:
+		pinctrl_info.cdc_lines_sus = pinctrl_lookup_state(pinctrl,
+			"cdc_lines_quat_sec_ext_sus");
+		if (IS_ERR(pinctrl_info.cdc_lines_sus)) {
+			pr_err("%s: Unable to get pinctrl disable state handle\n",
+								__func__);
+			return -EINVAL;
+		}
+		pinctrl_info.cdc_lines_act = pinctrl_lookup_state(pinctrl,
+			"cdc_lines_quat_sec_ext_act");
+		if (IS_ERR(pinctrl_info.cdc_lines_act)) {
+			pr_err("%s: Unable to get pinctrl disable state handle\n",
+								__func__);
+			return -EINVAL;
+		}
+		break;
+//Modify-End by TCTSZ. yuchao.pan@tcl.com, configure extern I2S for TFA9888UK, 20160114		
 	default:
 		pinctrl_info.cdc_lines_sus = pinctrl_lookup_state(pinctrl,
 			"cdc_lines_sus");

@@ -71,6 +71,11 @@
 
 static struct fb_info *fbi_list[MAX_FBI_LIST];
 static int fbi_list_index;
+/* [feature]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2016/02/04, modify panel sleep sequence to reduce power*/
+#if defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+bool is_fb_shutting_down = false;
+#endif
+/* [feature]-Mod-BEGIN by TCTSZ.yaohui.zeng*/
 
 static u32 mdss_fb_pseudo_palette[16] = {
 	0x00000000, 0xffffffff, 0xffffffff, 0xffffffff,
@@ -736,6 +741,11 @@ static void mdss_fb_shutdown(struct platform_device *pdev)
 
 	mfd->shutdown_pending = true;
 	lock_fb_info(mfd->fbi);
+/* [feature]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2016/02/04, modify panel sleep sequence to reduce power*/
+#if defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+	is_fb_shutting_down = true;
+#endif
+/* [feature]-Mod-BEGIN by TCTSZ.yaohui.zeng*/
 	mdss_fb_release_all(mfd->fbi, true);
 	sysfs_notify(&mfd->fbi->dev->kobj, NULL, "show_blank_event");
 	unlock_fb_info(mfd->fbi);
@@ -1328,7 +1338,11 @@ static int mdss_fb_blank_blank(struct msm_fb_data_type *mfd,
 		if (mfd->disp_thread)
 			mdss_fb_stop_disp_thread(mfd);
 		mutex_lock(&mfd->bl_lock);
+/*[Feature]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2016/01/26, Defect1490953,system turn off BL,no need to do here */
+#if (!defined(JRD_PROJECT_PIXI464G)) && (!defined(JRD_PROJECT_PIXI464GCRICKET))
 		mdss_fb_set_backlight(mfd, 0);
+#endif
+/*[Feature]-Mod-END by TCTSZ.yaohui.zeng, 2016/01/26 */
 		mfd->bl_updated = 0;
 		mutex_unlock(&mfd->bl_lock);
 	}
@@ -1391,6 +1405,11 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 			schedule_delayed_work(&mfd->idle_notify_work,
 				msecs_to_jiffies(mfd->idle_time));
 	}
+/* [feature]-Mod-BEGIN by TCTSZ.yaohui.zeng, 2016/02/04, modify panel sleep sequence to reduce power*/
+#if defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+	is_fb_shutting_down = false;
+#endif
+/* [feature]-Mod-BEGIN by TCTSZ.yaohui.zeng*/
 error:
 	return ret;
 }
@@ -1401,6 +1420,8 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	int ret = 0;
 	int cur_power_state, req_power_state = MDSS_PANEL_POWER_OFF;
+	ktime_t start_time;
+	ktime_t end_time;
 
 	if (!mfd || !op_enable)
 		return -EPERM;
@@ -1436,8 +1457,17 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
+	//add by yusen.ke.sz@tcl.com for debug begin
+		start_time = ktime_get();
+	//add end
 		pr_debug("unblank called. cur pwr state=%d\n", cur_power_state);
+		
 		ret = mdss_fb_blank_unblank(mfd);
+		//add by yusen.ke.sz@tcl.com for debug begin
+		end_time = ktime_get();
+		pr_err("unblank called. Delay:%llu ms\n",(ktime_to_ms(end_time)-ktime_to_ms(start_time)));
+	//add end
+
 		break;
 	case BLANK_FLAG_ULP:
 		req_power_state = MDSS_PANEL_POWER_LP2;

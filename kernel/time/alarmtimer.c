@@ -26,6 +26,13 @@
 #include <linux/workqueue.h>
 #include <linux/freezer.h>
 
+//[Feature] ADD-BEGIN by hong.lan@tcl.com for alarm Task:863775 2015/11/06
+#ifdef BUILD_USER_VERSION
+#define ALARM_DELTA 150
+#else
+#define ALARM_DELTA 150
+#endif
+//[Feature] ADD-END by hong.lan@tcl.com for alarm Task:863775 2015/11/06
 /**
  * struct alarm_base - Alarm timer bases
  * @lock:		Lock for syncrhonized access to the base
@@ -63,6 +70,8 @@ void set_power_on_alarm(long secs, bool enable)
 	struct rtc_time rtc_time;
 	struct rtc_wkalrm alarm;
 
+	printk("[%s], enable=%d\n", __func__, enable); // add by shengwang.luo@tcl.com for print log when set alarm(enable=1) or cancel alarm(enable=0)
+
 	rc = mutex_lock_interruptible(&power_on_alarm_lock);
 	if (rc != 0)
 		return;
@@ -90,8 +99,12 @@ void set_power_on_alarm(long secs, bool enable)
 	 *to power up the device before actual alarm
 	 *expiration
 	 */
-	if (alarm_time <= rtc_secs)
+//[Feature] ADD-BEGIN by hong.lan@tcl.com for alarm Task:863775 2015/11/06
+	if ((alarm_time - ALARM_DELTA) > rtc_secs)
+		alarm_time -= ALARM_DELTA;
+	else
 		goto disable_alarm;
+//[Feature] ADD-END by hong.lan@tcl.com for alarm Task:863775 2015/11/06
 
 	rtc_time_to_tm(alarm_time, &alarm.time);
 	alarm.enabled = 1;

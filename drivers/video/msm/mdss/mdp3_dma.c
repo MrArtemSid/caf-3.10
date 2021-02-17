@@ -330,10 +330,17 @@ static int mdp3_dmap_config(struct mdp3_dma *dma,
 
 	dma->source_config = *source_config;
 	dma->output_config = *output_config;
+//[Feature]-Add-BEGIN by TCTSZ. lcd 8394F bring up . yusen.ke.sz@tcl.com, 2016/1/26, for PR364368 
+#if defined ( JRD_PROJECT_POP45C )|| defined ( JRD_PROJECT_POP455C )||defined (JRD_PROJECT_GOPLAY2)
 
-	if (dma->output_config.out_sel != MDP3_DMA_OUTPUT_SEL_DSI_CMD)
-		mdp3_irq_enable(MDP3_INTR_LCDC_UNDERFLOW);
+	dma->roi.w = dma->source_config.width;
+	dma->roi.h = dma->source_config.height;
+	dma->roi.x = dma->source_config.x;
+	dma->roi.y = dma->source_config.y;
+#endif
+//[Feature]-Add-END by TCTSZ. lcd 8394F bring up . yusen.ke.sz@tcl.com, 2016/1/26, for PR364368 
 
+	mdp3_irq_enable(MDP3_INTR_LCDC_UNDERFLOW);
 	mdp3_dma_callback_setup(dma);
 	return 0;
 }

@@ -303,7 +303,166 @@ struct msm8x16_wcd_spmi msm8x16_wcd_modules[MAX_MSM8X16_WCD_DEVICE];
 
 static void *modem_state_notifier;
 
+//[Feature]-Add-BEGIN by TCTSZ. .add spk pa to mode3 ,2015-12-15,by buqing.wang
+//set delay for class-k PAs to ramp-up
+#define EXT_CLASS_D_EN_DELAY 150//buqing.wang motify,13000->150
+#define EXT_CLASS_D_DIS_DELAY 300 //buqing.wang motify,3000->300
+#define EXT_CLASS_D_DELAY_DELTA 150 //buqing.wang motify,13000->150
+
+#if defined(JRD_PROJECT_POP45)
+
+static int msm8x16_ext_spk_power_amp_init(struct device *dev);
+static void msm8x16_enable_ext_spk_power_amp(u32 on);
+#endif
+//[Feature]-Add-END by TCTSZ. .add spk pa to mode3 ,2015-12-15,by buqing.wang
+
+
 static struct snd_soc_codec *registered_codec;
+	//buqing.wang add the project name to pixi445spr ,2015-12-3 ,begin
+#if defined (JRD_PROJECT_POP45C) || defined(JRD_PROJECT_POP455C) ||defined(JRD_PROJECT_PIXI3454GSPR) || defined(JRD_PROJECT_POP45) || defined(JRD_PROJECT_PIXI445SPR) || defined(JRD_PROJECT_PIXI445CRICKET) || defined(JRD_PROJECT_PIXI464GCRICKET) || defined(JRD_PROJECT_PIXI4554G)
+	//buqing.wang add the project name to pixi445spr ,2015-12-3 ,end
+//[Feature]-Add-BEGIN by TCTSZ. add audio HAC function ting.kang@tcl.com, 12/30/2013
+static int ear_hac_gpio = -1;
+static int ear_power_hac_init = 0;	//whether hac request GPIO
+static int ear_hac_status = 0;	//whether hac power on,must be initial 0.
+
+static int msm8x10_ear_power_hac_init(struct device *dev)
+{
+    int ret = 0;
+    if (ear_power_hac_init)
+        return 0;
+
+    ear_hac_gpio = of_get_named_gpio(dev->of_node, "qcom,ear-hac-gpio", 0);
+    printk("msm8x10_ear_power_hac_init gpio = %d\n", ear_hac_gpio);
+    if (ear_hac_gpio >= 0) {
+        ret = gpio_request(ear_hac_gpio, "ear_hac_gpio");
+        if (ret) {
+            pr_err("%s: gpio_request failed for ear_hac_gpio.\n",
+                __func__);
+            return -EINVAL;
+        }
+        gpio_direction_output(ear_hac_gpio, 0);
+    }
+
+    ear_power_hac_init = 1;
+
+    return 0;
+}
+//[Feature]-Add-END by TCTSZ. add audio HAC function ting.kang@tcl.com, 12/30/2013
+#endif
+
+//[Feature]-Add-BEGIN by TCTSZ. .add spk pa to mode3 ,2015-12-15,by buqing.wang
+#if defined(JRD_PROJECT_POP45) || defined(JRD_PROJECT_PIXI4554G)
+static int ext_spk_amp_gpio = -1;
+static int ext_spk_pa_init = 0;	//whether speaker request GPIO
+static int ext_spk_pa_status = 0; //whether speaker power on,must be 0
+
+static int msm8x16_ext_spk_power_amp_init(struct device *dev)
+{   
+    int ret = 0;
+    if (ext_spk_pa_init == 1)
+    	{
+    	    return 0;
+    	}
+	ext_spk_amp_gpio = of_get_named_gpio(dev->of_node,
+		"qcom,jrd-ext-spk-amp-gpio", 0);
+	if (ext_spk_amp_gpio >= 0) {
+		ret = gpio_request(ext_spk_amp_gpio, "ext_spk_amp_gpio");
+		if (ret) {
+			pr_err("%s: gpio_request failed for ext_spk_amp_gpio.\n",
+				__func__);
+			return -EINVAL;
+		}
+		ext_spk_pa_init = 1;
+		gpio_direction_output(ext_spk_amp_gpio, 0);
+	}
+	return 0;
+}
+
+static void msm8x16_enable_ext_spk_power_amp(u32 on)
+{
+	if (on) {
+		//gpio_direction_output(ext_spk_amp_gpio, on);  //removed for adjusting the waveform for spk pa，2015-12-23,buqing.wang
+
+        gpio_set_value(ext_spk_amp_gpio, 1);
+	    udelay(2);
+		gpio_set_value(ext_spk_amp_gpio, 0);
+		udelay(2);
+		gpio_set_value(ext_spk_amp_gpio, 1);
+		udelay(2);
+		gpio_set_value(ext_spk_amp_gpio, 0);
+		udelay(2);
+		gpio_set_value(ext_spk_amp_gpio, 1);
+		usleep_range(EXT_CLASS_D_EN_DELAY,
+			     EXT_CLASS_D_EN_DELAY + EXT_CLASS_D_DELAY_DELTA);
+	} else {
+		gpio_direction_output(ext_spk_amp_gpio, on);
+		usleep_range(EXT_CLASS_D_DIS_DELAY,
+			     EXT_CLASS_D_DIS_DELAY + EXT_CLASS_D_DELAY_DELTA);
+	}
+
+	pr_debug("%s: %s external speaker PAs.\n", __func__,
+			on ? "Enable" : "Disable");
+}
+#endif
+//[Feature]-Add-END .by TCTSZ. .add spk pa to mode3 ,2015-12-15,by buqing.wang 
+
+//[Feature]-Add-BEGIN by TCTSZ. .add spk pa to mode3 ,2016-03-15,by buqing.wang
+#if defined(JRD_PROJECT_PIXI4554G)
+static int ext_hphr_switch_gpio = -1;
+static int ext_hphr_switch_init = 0;  //whether speaker request GPIO
+static int ext_hphr_switch_status = 0; //whether speaker power on,must be 0
+
+static int msm8x16_ext_hphr_power_switch_init(struct device *dev)
+{   
+    int ret = 0;
+    if (ext_hphr_switch_init == 1)
+    	{
+    	    return 0;
+    	}
+	ext_hphr_switch_gpio = of_get_named_gpio(dev->of_node,
+		"qcom,jrd-hphr-enable-gpio", 0);
+	if (ext_hphr_switch_gpio >= 0) {
+		ret = gpio_request(ext_hphr_switch_gpio, "ext_hphr_switch_gpio");
+		if (ret) {
+			pr_err("%s: gpio_request failed for ext_hphr_switch_gpio.\n",
+				__func__);
+			return -EINVAL;
+		}
+		ext_hphr_switch_init = 1;
+		gpio_direction_output(ext_hphr_switch_gpio, 0);
+	}
+	return 0;
+}
+
+static void msm8x16_enable_ext_hphr_switch_amp(u32 on)
+{
+	int ret = 0;
+	if (ear_hac_gpio < 0)
+        return;
+
+	if (on) {
+		ret = gpio_direction_output(ext_hphr_switch_gpio, on);
+		ext_hphr_switch_status= 1;
+	} else {
+		ret = gpio_direction_output(ext_hphr_switch_gpio, on);
+		ext_hphr_switch_status = 0;
+	}
+	printk("%s: %s ext_hphr_switch PAs.\n", __func__,
+			on ? "Enable" : "Disable");
+}
+
+#endif
+//[Feature]-Add-END by TCTSZ. .add spk pa to mode3 ,2016-03-15,by buqing.wang
+
+//ADD-BEGIN,make compatible for inter and extn spk pa,by buqing.wang,2016-1-18
+#if defined(JRD_PROJECT_POP45)
+#define QCOM_GPIO_BASE 911   //qcom base gpio number
+#define GPIO_FOR_PA_TYPE (2 + QCOM_GPIO_BASE)  //gpio22 ,used for checking spk pa use
+int board_id_gpio2_status = -1;//0 for extn,1 for inter
+#endif
+//ADD-BEGIN,make compatible for inter and extn spk pa,by buqing.wang,2016-1-18
+
 
 static int get_codec_version(struct msm8x16_wcd_priv *msm8x16_wcd)
 {
@@ -1953,6 +2112,139 @@ static int msm8x16_wcd_ear_pa_boost_set(struct snd_kcontrol *kcontrol,
 		(ucontrol->value.integer.value[0] ? true : false);
 	return 0;
 }
+//buqing.wang add the project name to pixi445spr ,2015-12-3 ,begin
+#if defined (JRD_PROJECT_POP45C) || defined(JRD_PROJECT_POP455C) || defined(JRD_PROJECT_PIXI3454GSPR) || defined(JRD_PROJECT_POP45) || defined(JRD_PROJECT_PIXI445SPR)  || defined(JRD_PROJECT_PIXI445CRICKET)  || defined(JRD_PROJECT_PIXI464GCRICKET) || defined(JRD_PROJECT_PIXI4554G)
+//buqing.wang add the project name to pixi445spr ,2015-12-3 ,end
+//[Feature]-Add-BEGIN by TCTSZ. add audio HAC function ting.kang@tcl.com, 12/30/2013
+static void msm8x10_enable_ear_hac_power_amp(u32 on)
+{
+    int ret = 0;
+
+    printk("msm8x10_enable_ear_hac_power_amp ear_hac_gpio = %d, on = %d\n", ear_hac_gpio, on);
+	if (ear_hac_gpio < 0)
+        return;
+
+	if (on) {
+		ret = gpio_direction_output(ear_hac_gpio, on);
+		ear_hac_status = 1;
+	} else {
+		ret = gpio_direction_output(ear_hac_gpio, on);
+		ear_hac_status = 0;
+	}
+
+    printk("msm8x10_enable_ear_hac_power_amp ret = %d\n", ret);
+
+	printk("%s: %s external ear PAs.\n", __func__,
+			on ? "Enable" : "Disable");
+}
+
+static int msm8x10_wcd_ear_hac_gain_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+
+	if (1 == ear_hac_status) {
+		ucontrol->value.integer.value[0] = 1;
+	} else if (0 == ear_hac_status) {
+		ucontrol->value.integer.value[0] = 0;
+	}
+	else {
+		dev_err(codec->dev, "%s: the status of hac is error.\n", __func__);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int msm8x10_wcd_ear_hac_gain_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+    printk("msm8x10_wcd_ear_hac_gain_put %d\n", (int)ucontrol->value.integer.value[0]);
+    if (ucontrol->value.integer.value[0])
+	    msm8x10_enable_ear_hac_power_amp(1);
+	else
+	    msm8x10_enable_ear_hac_power_amp(0);
+
+    return 0;
+}
+//[Feature]-Add-END by TCTSZ. add audio HAC function ting.kang@tcl.com, 12/30/2013
+#endif
+//[Feature]-Add-BEGIN by TCTSZ. ext spk pa config buqing.wang@tcl.com, 2015-12-17
+#if defined (JRD_PROJECT_POP45) || defined (JRD_PROJECT_PIXI4554G)
+
+static int msm8x16_wcd_ext_spk_pa_gain_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+
+	if (1 == ext_spk_pa_status) {
+		ucontrol->value.integer.value[0] = 1;
+	} else if (0 == ext_spk_pa_status) {
+		ucontrol->value.integer.value[0] = 0;
+	}
+	else {
+		dev_err(codec->dev, "%s: the status of extern speaker is error.\n", __func__);
+		return -EINVAL;
+	}
+
+    return 0;
+}
+
+static int msm8x16_wcd_ext_spk_pa_gain_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+    printk("msm8x16_wcd_ext_spk_pa_gain_put %d\n", (int)ucontrol->value.integer.value[0]);
+    if (ucontrol->value.integer.value[0]) {
+	   msm8x16_enable_ext_spk_power_amp(1);
+	   ext_spk_pa_status = 1;
+	}
+	else {
+	   msm8x16_enable_ext_spk_power_amp(0);
+	   ext_spk_pa_status = 0;
+	}
+
+    return 0;
+}
+#endif
+//[Feature]-Add-END by TCTSZ. ext spk pa config buqing.wang@tcl.com, 2015-12-17
+
+//[Feature]-Add-BEGIN by TCTSZ. .add hphr switch for ext pa ,2016-03-16,by buqing.wang
+#if defined(JRD_PROJECT_PIXI4554G)
+static int msm8x16_wcd_ext_hphr_switch_get(struct snd_kcontrol * kcontrol, struct snd_ctl_elem_value * ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+
+	if ( 1 == ext_hphr_switch_status ) {
+		ucontrol->value.integer.value[0] = 1;
+	} else if ( 0 == ext_hphr_switch_status ) {
+		ucontrol->value.integer.value[0] = 0;
+	}
+	else {
+		dev_err(codec->dev, "%s: the status of hphr switch is error.\n", __func__);
+		return -EINVAL;
+	}
+
+    return 0;
+}
+
+static int msm8x16_wcd_ext_hphr_switch_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+    printk("msm8x16_wcd_ext_hphr_switch_put %d\n", (int)ucontrol->value.integer.value[0]);
+    if (ucontrol->value.integer.value[0]) {
+	   msm8x16_enable_ext_hphr_switch_amp(1);
+	   ext_hphr_switch_status = 1;
+	}
+	else {
+	    msm8x16_enable_ext_hphr_switch_amp(0);
+	   ext_hphr_switch_status = 0;
+	}
+
+    return 0;
+}
+
+#endif
+//[Feature]-Add-END by TCTSZ. .add hphr switch for ext pa ,2016-03-16,by buqing.wang
 
 static int msm8x16_wcd_pa_gain_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
@@ -2448,6 +2740,31 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 
 	SOC_ENUM_EXT("EAR PA Gain", msm8x16_wcd_ear_pa_gain_enum[0],
 		msm8x16_wcd_pa_gain_get, msm8x16_wcd_pa_gain_put),
+	//buqing.wang add the project name to pixi445spr ,2015-12-3 ,begin
+#if defined (JRD_PROJECT_POP45C) || defined(JRD_PROJECT_POP455C) || defined(JRD_PROJECT_PIXI3454GSPR) || defined(JRD_PROJECT_POP45) || defined(JRD_PROJECT_PIXI445SPR) || defined(JRD_PROJECT_PIXI445CRICKET)  || defined(JRD_PROJECT_PIXI464GCRICKET) || defined(JRD_PROJECT_PIXI4554G)
+	//buqing.wang add the project name to pixi445spr ,2015-12-3 ,end
+	//[Feature]-Add-BEGIN by TCTSZ. add audio HAC function ting.kang@tcl.com, 12/30/2013
+	SOC_SINGLE_BOOL_EXT("EAR HAC Switch", 0,
+		msm8x10_wcd_ear_hac_gain_get, msm8x10_wcd_ear_hac_gain_put),
+	//[Feature]-Add-END by TCTSZ. add audio HAC function ting.kang@tcl.com, 12/30/2013
+#endif
+
+
+
+//[Feature]-Add-BEGIN by TCTSZ. extn spk pa config for POP45 . buqing.wang@tcl.com, 2015-12-17
+#if defined (JRD_PROJECT_POP45)|| defined (JRD_PROJECT_PIXI4554G)
+   SOC_SINGLE_BOOL_EXT("EXT SPK PA Switch", 0,
+		msm8x16_wcd_ext_spk_pa_gain_get, msm8x16_wcd_ext_spk_pa_gain_put),
+#endif
+
+//[Feature]-Add-BEGIN by TCTSZ. .add hphr switch for ext spk pa ,2016-03-15,by buqing.wang
+#if defined(JRD_PROJECT_PIXI4554G)
+   SOC_SINGLE_BOOL_EXT("EXT HPHR Switch", 0,
+		msm8x16_wcd_ext_hphr_switch_get, msm8x16_wcd_ext_hphr_switch_put),
+#endif
+//[Feature]-Add-END by TCTSZ. .add hphr switch for ext spk pa,2016-03-15,by buqing.wang
+
+//[Feature]-Add-END by TCTSZ. extn spk pa config for POP45 . buqing.wang@tcl.com, 2015-12-17
 
 	SOC_ENUM_EXT("Speaker Boost", msm8x16_wcd_spk_boost_ctl_enum[0],
 		msm8x16_wcd_spk_boost_get, msm8x16_wcd_spk_boost_set),
@@ -4239,12 +4556,22 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"IIR2 INP1 MUX", "DEC2", "DEC2 MUX"},
 	{"MIC BIAS Internal1", NULL, "INT_LDO_H"},
 	{"MIC BIAS Internal2", NULL, "INT_LDO_H"},
+/* ting.kang add for sub mic micbias 20140819 */
+/*remove beacuse MIC BIAS Internal3 isn't be used in these current projects,by buqing.wang,2016-2-22*/
+//	{"MIC BIAS Internal3", NULL, "INT_LDO_H"},//remove
+
 	{"MIC BIAS External", NULL, "INT_LDO_H"},
 	{"MIC BIAS External2", NULL, "INT_LDO_H"},
+/* ting.kang add for sub mic micbias 20140819  */
+//	{"MIC BIAS External3", NULL, "INT_LDO_H"}, //remove
 	{"MIC BIAS Internal1", NULL, "MICBIAS_REGULATOR"},
 	{"MIC BIAS Internal2", NULL, "MICBIAS_REGULATOR"},
+/* ting.kang add for sub mic micbias 20140819 */
+//	{"MIC BIAS Internal3", NULL, "MICBIAS_REGULATOR"},//remove
 	{"MIC BIAS External", NULL, "MICBIAS_REGULATOR"},
 	{"MIC BIAS External2", NULL, "MICBIAS_REGULATOR"},
+/* ting.kang add for sub mic micbias 20140819 */
+//	{"MIC BIAS External3", NULL, "MICBIAS_REGULATOR"}, remove
 };
 
 static int msm8x16_wcd_startup(struct snd_pcm_substream *substream,
@@ -5029,6 +5356,7 @@ static const struct msm8x16_wcd_reg_mask_val
 	/* Initialize current threshold to 350MA
 	 * number of wait and run cycles to 4096
 	 */
+	//the headset OCP 280mA
 	{MSM8X16_WCD_A_ANALOG_RX_COM_OCP_CTL, 0xFF, 0x12},
 	{MSM8X16_WCD_A_ANALOG_RX_COM_OCP_COUNT, 0xFF, 0xFF},
 };
@@ -5753,6 +6081,28 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 
 	dev_dbg(&spmi->dev, "%s(%d):slave ID = 0x%x\n",
 		__func__, __LINE__,  spmi->sid);
+	//buqing.wang add the project name to pixi445spr ,2015-12-3 ,begin
+#if defined (JRD_PROJECT_POP45C) || defined(JRD_PROJECT_POP455C) || defined(JRD_PROJECT_PIXI3454GSPR) || defined(JRD_PROJECT_POP45) || defined(JRD_PROJECT_PIXI445SPR) || defined(JRD_PROJECT_PIXI445CRICKET)  || defined(JRD_PROJECT_PIXI464GCRICKET) || defined(JRD_PROJECT_PIXI4554G) //buqing.wang add project
+	//buqing.wang add the project name to pixi445spr ,2015-12-3 ,end
+	msm8x10_ear_power_hac_init(&spmi->dev); //[Feature]-Add by TCTSZ. add audio HAC function ting.kang@tcl.com, 12/30/2013
+#endif
+//[Feature]-Add-BEGIN by TCTSZ. .add spk pa to mode3 for POP45,2015-12-15,by buqing.wang
+#if defined (JRD_PROJECT_POP45)
+   	board_id_gpio2_status = gpio_get_value(GPIO_FOR_PA_TYPE);
+    if (board_id_gpio2_status == 0){
+		msm8x16_ext_spk_power_amp_init(&spmi->dev);
+		printk("%s :extn spk pa \n",__func__);
+    }else {
+        printk("%s : internel spk pa \n",__func__);
+}
+#endif
+//[Feature]-Add-BEGIN by TCTSZ. .add spk pa to mode3 for POP45,2015-12-15,by buqing.wang
+	//[Feature]-Add-BEGIN by TCTSZ. .add spk pa to mode3 ,2016-03-16,by buqing.wang
+#if defined(JRD_PROJECT_PIXI4554G)
+    msm8x16_ext_spk_power_amp_init(&spmi->dev);
+	msm8x16_ext_hphr_power_switch_init(&spmi->dev);
+#endif
+	//[Feature]-Add-END by TCTSZ. .add spk pa to mode3 ,2016-03-16,by buqing.wang
 
 	modem_state = apr_get_modem_state();
 

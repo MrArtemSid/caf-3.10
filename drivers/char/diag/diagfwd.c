@@ -39,6 +39,7 @@
 #include "diag_masks.h"
 #include "diag_usb.h"
 #include "diag_mux.h"
+#include <soc/qcom/smem.h> //add by lingchan.hu@tcl.com for check spc result PR-1534386
 
 #define STM_CMD_VERSION_OFFSET	4
 #define STM_CMD_MASK_OFFSET	5
@@ -1078,7 +1079,9 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 	int mask_ret;
 	int status = 0;
 	int write_len = 0;
-
+#if defined (JRD_PROJECT_PIXI445SPR) && defined(BUILD_USER_VERSION)
+	uint32_t *spc_flag = NULL; //add by lingchan.hu@tcl.com for check spc result PR-1534386
+#endif
 	/* Check if the command is a supported mask command */
 	mask_ret = diag_process_apps_masks(buf, len);
 	if (mask_ret > 0) {
@@ -1167,11 +1170,29 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		/* send response back */
 		driver->apps_rsp_buf[0] = *buf;
 		encode_rsp_and_send(0);
+//add start by lingchan.hu@tcl.com for check spc result PR-1534386
+#if defined (JRD_PROJECT_PIXI445SPR) && defined (BUILD_USER_VERSION)
+		spc_flag = smem_find(SMEM_ID_VENDOR1, sizeof(uint32_t),0,SMEM_ANY_HOST_FLAG);
+		if(spc_flag == NULL){
+			return 0;
+		}
+		if(0x20150420 != *spc_flag){
+			return 0;
+		}
+#endif
+//add end by lingchan.hu@tcl.com for check spc result PR-1534386
 		msleep(5000);
 		/* call download API */
+//[Feature]-Add-BEGIN by TCTSZ.yongzhong.cheng@tcl.com,2015/6/30,for ALM367655: enter 9008 download mode
+#if  1 // CONFIG_JRD_BUTTON_DIAG
+		printk(KERN_CRIT "diag: 9008 download mode set, Rebooting SoC..\n");
+		kernel_restart("edl");
+#else
 		msm_set_restart_mode(RESTART_DLOAD);
 		printk(KERN_CRIT "diag: download mode set, Rebooting SoC..\n");
 		kernel_restart(NULL);
+#endif
+//[Feature]-Add-END by TCTSZ.yongzhong.cheng@TCL.com, 2015/6/30,for ALM367655
 		/* Not required, represents that command isnt sent to modem */
 		return 0;
 	}

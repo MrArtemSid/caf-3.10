@@ -14,8 +14,10 @@
 ifneq ($(MACHINE),)
 include $(srctree)/$(MACHINE)/Makefile.boot
 endif
-
-include $(srctree)/arch/arm/boot/dts/qcom/Makefile
+#[Feature]-Modify-Begin by TCTSZ. Add DTS project shengwang.luo@tcl.com, 2015/10/10, ALM714748
+#include $(srctree)/arch/arm/boot/dts/qcom/Makefile
+include $(srctree)/arch/arm/boot/dts/Makefile
+#[Feature]-Modify-End by TCTSZ. shengwang.luo@tcl.com, 2015/10/10, ALM714748
 ifneq ($(DTSSUBDIR),)
 DTSSUBDIR_INCS=$(foreach DIR, $(DTSSUBDIR), $(addsuffix /Makefile, $(addprefix $(srctree)/arch/arm/boot/dts/, $(DIR))))
 include $(DTSSUBDIR_INCS)

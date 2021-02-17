@@ -543,6 +543,11 @@ config MSM_BCL_PERIPHERAL_CTL
 	  provides routines to configure and monitor the BCL
 	  PMIC peripheral.
 
+config QPNP_BATT_STATUS_DEBUG
+	tristate "QPNP battery status debug"
+	help
+	  Say Y here to enable the reporter of battery status.
+
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY

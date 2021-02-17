@@ -200,6 +200,33 @@ config SENSORS_HALL
 	 Say y here if you want to use this hall sensor driver, it
 	 is like a switch. For example, lid.
 
+#[Feature]-BEGIN by TCTSZ.yongzhong.cheng@tcl.com,2015/8/26,for 538697:add gryoscope  bmg160 driver
+config GRYOSCOPE_BMG160
+        bool "gryoscope sensor bmg160"
+        depends on INPUT
+        ---help---
+         Say y here if you want to use this gryoscope sensor driver, it
+         is like a switch. For example, lid.
+#[Feature]-END by TCTSZ.yongzhong.cheng@tcl.com, 2015/8/26,for  538697
+
+#yongzhong.cheng@tcl.com,task1401030,2016/1/12,enable pressure sensor
+config PRESSURE_BMP280
+        bool "pressure sensor bmp280"
+        depends on INPUT
+        ---help---
+         Say y here if you want to use this pressure sensor driver, it
+         is like a switch. For example, lid.
+#yongzhong.cheng@tcl.com,task1401030,2016/1/12,enable pressure sensor
+
+#yongzhong.cheng@tcl.com,2016/4/12,defect 1938927,G-sensor and Gyro-sensor 2in1 bmi120
+config  ACC_GRYO_BMI120
+        bool "ACC and Gypo sensor 2in1"
+        depends on INPUT
+        ---help---
+         Say y here if you want to use this pressure sensor driver, it
+         is like a switch. For example, lid.
+#yongzhong.cheng@tcl.com,2016/4/12,defect 1938927,G-sensor and Gyro-sensor 2in1 bmi120
+
 comment "Input Device Drivers"
 
 source "drivers/input/keyboard/Kconfig"

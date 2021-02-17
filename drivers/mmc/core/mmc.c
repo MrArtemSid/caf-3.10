@@ -333,6 +333,15 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	 * are authorized, see JEDEC JESD84-B50 section B.8.
 	 */
 	card->ext_csd.rev = ext_csd[EXT_CSD_REV];
+	/*[Bugfix]-Add-BEGIN by TCTSZ. Allow forward compatibility for eMMC wenzhao.guo@tcl.com, 2015/09/18, for [Task-625194]
+	if (card->ext_csd.rev > 7) {
+	
+		pr_err("%s: unrecognised EXT_CSD revision %d\n",
+			mmc_hostname(card->host), card->ext_csd.rev);
+		err = -EINVAL;
+		goto out;
+	}
+	[Bugfix]-Add-END by TCTSZ. Allow forward compatibility for eMMC wenzhao.guo@tcl.com, 2015/09/18, for [Task-625194]*/
 
 	/* fixup device after ext_csd revision field is updated */
 	mmc_fixup_device(card, mmc_fixups);
@@ -1466,6 +1475,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 					mmc_hostname(host), __func__, err);
 			goto free_card;
 		}
+		//[Feature]-Add-BEGIN by TCTSZ. add emmc  info to log wenzhao.guo@tcl.com, 2016/01/12, for [Task-1401100]
+		pr_info("eMMC Manufature ID:0x%x\n", card->cid.manfid);
+		//[Feature]-Add-END by TCTSZ. add emmc  info to log wenzhao.guo@tcl.com, 2016/01/12, for [Task-1401100]
+		
 	}
 
 	/*
@@ -1498,6 +1511,27 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 					mmc_hostname(host), __func__, err);
 			goto free_card;
 		}
+		//[Feature]-Add-BEGIN by TCTSZ. add emmc  info to log wenzhao.guo@tcl.com, 2016/01/12, for [Task-1401100]
+		switch(ext_csd[EXT_CSD_PRE_EOL_INFO])
+		{
+			case 0:
+				pr_info("eMMC lifetime: not defined.\n");
+				break;
+			case 1:
+				pr_info("eMMC lifetime: normal.\n");
+				break;
+			case 2:
+				pr_info("eMMC lifetime: warning(80%%).\n");
+				break;
+			case 3:
+				pr_info("eMMC lifetime: urgent(90%%).\n");
+				break;
+			default:
+				pr_info("eMMC lifetime: reserved.\n");
+		}
+		pr_info("eMMC lifetime of SLC areas: 0x%x\n", ext_csd[EXT_CSD_DEVICE_LIFE_TIME_EST_TYP_A]);
+		pr_info("eMMC lifetime of MLC areas: 0x%x\n", ext_csd[EXT_CSD_DEVICE_LIFE_TIME_EST_TYP_B]);
+		//[Feature]-Add-END by TCTSZ. add emmc  info to log wenzhao.guo@tcl.com, 2016/01/12, for [Task-1401100]
 
 		/* If doing byte addressing, check if required to do sector
 		 * addressing.  Handle the case of <2GB cards needing sector

@@ -629,6 +629,10 @@ struct sensor_init_cfg_data {
 #define VIDIOC_MSM_FLASH_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 13, struct msm_flash_cfg_data_t)
 
+//add by weicai.long@tcl.com, otp feature.
+#define VIDIOC_MSM_OTP_CFG \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 14, struct sensorb_cfg_data)
+    
 #ifdef CONFIG_COMPAT
 struct msm_camera_i2c_reg_setting32 {
 	compat_uptr_t reg_setting;

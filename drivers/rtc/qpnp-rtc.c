@@ -336,7 +336,8 @@ qpnp_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 
 	rtc_dd->alarm_ctrl_reg1 = ctrl_reg;
 
-	dev_dbg(dev, "Alarm Set for h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
+	// Modify by shengwang.luo@tcl.com for enable set alarm log
+	dev_err(dev, "Alarm Set for h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
 			alarm->time.tm_hour, alarm->time.tm_min,
 			alarm->time.tm_sec, alarm->time.tm_mday,
 			alarm->time.tm_mon, alarm->time.tm_year);
@@ -469,6 +470,10 @@ static int qpnp_rtc_probe(struct spmi_device *spmi)
 	struct qpnp_rtc *rtc_dd;
 	struct resource *resource;
 	struct spmi_resource *spmi_resource;
+//[Feature] ADD-BEGIN by hong.lan@tcl.com for power off alarm function PR:418823  2015/07/09
+	u8 alarm_flag = 0;	
+	u8 alarm_value[4] = {0}; 
+//[Feature] ADD-END by hong.lan@tcl.com for power off alarm function PR:418823  2015/07/09
 
 	rtc_dd = devm_kzalloc(&spmi->dev, sizeof(*rtc_dd), GFP_KERNEL);
 	if (rtc_dd == NULL) {
@@ -578,7 +583,35 @@ static int qpnp_rtc_probe(struct spmi_device *spmi)
 		dev_err(&spmi->dev, "SPMI write failed!\n");
 		goto fail_rtc_enable;
 	}
+	
+//[Feature] ADD-BEGIN by hong.lan@tcl.com for alarm Task:863775 2015/11/11
+	rc = qpnp_read_wrapper(rtc_dd, &alarm_flag, 0x40b9, 1);
+	if (rc)
+		dev_err(rtc_dd->rtc_dev, "SPMI read value at 0x40b9 failed\n");
 
+	printk("%s read 0x40b9 alarm_flag = 0x%x\n", __func__, alarm_flag);
+	
+	if (alarm_flag != 0xaa) {
+		rc = qpnp_write_wrapper(rtc_dd, alarm_value,
+				rtc_dd->alarm_base + REG_OFFSET_ALARM_RW,
+				NUM_8_BIT_RTC_REGS);
+		if (rc) {
+			dev_err(rtc_dd->rtc_dev, "Clear ALARM reg failed\n");
+		}
+	}
+	
+	/* set power off alarm flag 0xFF */
+	alarm_flag = 0xFF;
+	rc = qpnp_write_wrapper(rtc_dd, &alarm_flag, 0x40b9, 1);
+	if (rc){
+		dev_err(rtc_dd->rtc_dev, "SPMI write 0xFF to 0x40b9 failed\n");
+	}
+	else{
+		printk("%s write 0x40b9 alarm_flag = 0x%x\n", __func__, alarm_flag);
+	}
+//[Feature] ADD-END by hong.lan@tcl.com for alarm Task:863775 2015/11/11
+
+	
 	if (rtc_dd->rtc_write_enable == true)
 		qpnp_rtc_ops.set_time = qpnp_rtc_set_time;
 
@@ -673,6 +706,29 @@ static void qpnp_rtc_shutdown(struct spmi_device *spmi)
 fail_alarm_disable:
 		spin_unlock_irqrestore(&rtc_dd->alarm_ctrl_lock, irq_flags);
 	}
+
+//[Feature] ADD-BEGIN by hong.lan@tcl.com for alarm Task:863775 2015/11/11
+	rc = qpnp_read_wrapper(rtc_dd, &reg,
+			rtc_dd->alarm_base + REG_OFFSET_ALARM_CTRL1, 1);
+
+	if ((reg & BIT_RTC_ALARM_ENABLE)) {
+		/* set power off alarm flag 0xaa */
+		reg = 0xAA;
+		rc = qpnp_write_wrapper(rtc_dd, &reg, 0x40b9, 1);
+		if (rc)
+		{
+			dev_err(rtc_dd->rtc_dev, "SPMI write 0xAA to 0x40b9 failed\n");
+		}
+		printk("%s write 0x40b9 address is 0x%x\n", __func__, reg);
+	} else {
+		/* Clear Alarm register */
+		memset(value, 0, NUM_8_BIT_RTC_REGS);
+		rc = qpnp_write_wrapper(rtc_dd, value,
+				rtc_dd->alarm_base + REG_OFFSET_ALARM_RW,
+				NUM_8_BIT_RTC_REGS);
+	}
+//[Feature] ADD-END by hong.lan@tcl.com for alarm Task:863775 2015/11/11
+
 }
 
 static struct of_device_id spmi_match_table[] = {

@@ -40,6 +40,21 @@
 #include <soc/qcom/sysmon.h>
 
 #include <asm/current.h>
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+#include <soc/qcom/smem.h>
+#endif
+//End add
+
+/* [Feature]-Add-Begin by TCTSZ. Add subsystem restart reason to klog wenzhao.guo@tcl.com, 2016/02/15, for [Task-1401100] */
+#include <linux/klog.h>
+#undef pr_err
+#undef pr_info
+#undef pr_warn
+#define pr_err ssr_print
+#define pr_info ssr_print
+#define pr_warn ssr_print
+/* [Feature]-Add-End by TCTSZ. Add subsystem restart reason to klog wenzhao.guo@tcl.com, 2016/02/15, for [Task-1401100] */
 
 #define DISABLE_SSR 0x9889deed
 /* If set to 0x9889deed, call to subsystem_restart_dev() returns immediately */
@@ -878,7 +893,11 @@ static void device_restart_work_hdlr(struct work_struct *work)
 int subsystem_restart_dev(struct subsys_device *dev)
 {
 	const char *name;
-
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+	void* smem_name = NULL;
+#endif
+//End add
 	if (!get_device(&dev->dev))
 		return -ENODEV;
 
@@ -902,6 +921,18 @@ int subsystem_restart_dev(struct subsys_device *dev)
 
 	pr_info("Restart sequence requested for %s, restart_level = %s.\n",
 		name, restart_levels[dev->restart_level]);
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+	smem_name = smem_alloc(SMEM_SSR_NAME, 2*sizeof(unsigned int),0,SMEM_ANY_HOST_FLAG);
+	if(smem_name==NULL)
+		pr_err("SMEM_SSR_NAME smem_alloc failed\n");
+	else
+	{
+		snprintf((char*)smem_name, strlen(name)+1,"%s", name);
+		printk(KERN_ERR"====Jao subsystem crash test======>%s\n",(char*)smem_name);
+	}
+#endif
+//End add
 
 	if (WARN(disable_restart_work == DISABLE_SSR,
 		"subsys-restart: Ignoring restart request for %s.\n", name)) {

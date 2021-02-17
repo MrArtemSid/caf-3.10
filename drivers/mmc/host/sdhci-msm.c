@@ -3550,6 +3550,18 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc->caps2 |= MMC_CAP2_CORE_RUNTIME_PM;
 	msm_host->mmc->caps2 |= MMC_CAP2_PACKED_WR;
 	msm_host->mmc->caps2 |= MMC_CAP2_PACKED_WR_CONTROL;
+
+	/* BEGIN xiaoju.liang@tcl.com */
+	if (pdev->dev.of_node) {
+		/* disable packed write for sdhc1 */
+		if (of_alias_get_id(pdev->dev.of_node, "sdhc") == 1) {
+			msm_host->mmc->caps2 &= ~MMC_CAP2_PACKED_WR;
+			msm_host->mmc->caps2 &= ~MMC_CAP2_PACKED_WR_CONTROL;
+			dev_info(&pdev->dev, "packed write diabled.\n");
+		}
+	}
+	/* END xiaoju.liang@tcl.com */
+
 	msm_host->mmc->caps2 |= (MMC_CAP2_BOOTPART_NOACC |
 				MMC_CAP2_DETECT_ON_ERR);
 	msm_host->mmc->caps2 |= MMC_CAP2_CACHE_CTRL;

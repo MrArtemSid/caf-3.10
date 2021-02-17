@@ -281,6 +281,45 @@ KBUILD_DTBS := dtbs
 endif
 
 DTSSUBDIR := qcom
+# [Feature]-Add-BEGIN by TCTSZ. Add DTS project shengwang.luo@tcl.com, 2015/10/10, ALM714748
+ifeq ($(TARGET_PRODUCT),POP45C)
+DTSSUBDIR := POP45C
+endif
+ifeq ($(TARGET_PRODUCT),POP455C)
+DTSSUBDIR := POP455C
+endif
+ifeq ($(TARGET_PRODUCT),POP455CTMO)
+DTSSUBDIR := POP455CTMO
+endif
+ifeq ($(TARGET_PRODUCT),Pixi3454GSPR)
+DTSSUBDIR := Pixi3454GSPR
+endif
+ifeq ($(TARGET_PRODUCT),POP45)
+DTSSUBDIR := POP45
+endif
+#chuhua.liang for Pixi4554G sharegit
+ifeq ($(TARGET_PRODUCT),Pixi4554G)
+DTSSUBDIR := Pixi4554G
+endif
+#ying.pang for Pixi445SPR sharegit
+ifeq ($(TARGET_PRODUCT),Pixi445SPR)
+DTSSUBDIR := Pixi445SPR
+endif
+#ying.pang for Pixi464G sharegit
+ifeq ($(TARGET_PRODUCT),Pixi464G)
+DTSSUBDIR := Pixi464G
+endif
+#chuhua.liang for GOPLAY2 sharegit.
+ifeq ($(TARGET_PRODUCT),GOPLAY2)
+DTSSUBDIR := GOPLAY2
+endif
+ifeq ($(TARGET_PRODUCT),Pixi445Cricket)
+DTSSUBDIR := Pixi445Cricket
+endif
+ifeq ($(TARGET_PRODUCT),Pixi464GCricket)
+DTSSUBDIR := Pixi464GCricket
+endif
+# [Feature]-Add-END by TCTSZ. shengwang.luo@tcl.com, 2015/10/10, ALM714748
 
 all:	$(KBUILD_IMAGE) $(KBUILD_DTBS)
 
@@ -304,6 +343,44 @@ zinstall uinstall install: vmlinux
 dtbs: scripts
 	$(Q)$(MAKE) $(build)=$(boot)/dts MACHINE=$(MACHINE) dtbs
 	$(foreach DIR, $(DTSSUBDIR), $(Q)$(MAKE) $(build)=$(boot)/dts/$(DIR) MACHINE=$(MACHINE) dtbs)
+# [Feature]-Add-BEGIN by TCTSZ. add DTS project shengwang.luo@tcl.com, 2015/10/10, ALM714748
+ifeq ($(TARGET_PRODUCT),POP45C)
+	$(Q)$(MAKE) $(build)=$(boot)/dts/POP45C MACHINE=$(MACHINE) dtbs
+endif
+ifeq ($(TARGET_PRODUCT),POP455C)
+	$(Q)$(MAKE) $(build)=$(boot)/dts/POP455C MACHINE=$(MACHINE) dtbs
+endif
+ifeq ($(TARGET_PRODUCT),POP455CTMO)
+	$(Q)$(MAKE) $(build)=$(boot)/dts/POP455CTMO MACHINE=$(MACHINE) dtbs
+endif
+ifeq ($(TARGET_PRODUCT),Pixi3454GSPR)
+	$(Q)$(MAKE) $(build)=$(boot)/dts/Pixi3454GSPR MACHINE=$(MACHINE) dtbs
+endif
+ifeq ($(TARGET_PRODUCT),POP45)
+	$(Q)$(MAKE) $(build)=$(boot)/dts/POP45 MACHINE=$(MACHINE) dtbs
+endif
+ifeq ($(TARGET_PRODUCT),Pixi4554G)
+	$(Q)$(MAKE) $(build)=$(boot)/dts/Pixi4554G MACHINE=$(MACHINE) dtbs
+endif
+# [Feature]-Add-END by TCTSZ. shengwang.luo@tcl.com, 2015/10/10, ALM714748
+#ying.pang for Pixi445SPR sharegit 
+ifeq ($(TARGET_PRODUCT),Pixi445SPR)
+	$(Q)$(MAKE) $(build)=$(boot)/dts/Pixi445SPR MACHINE=$(MACHINE) dtbs
+endif
+#ying.pang for Pixi464G sharegit 
+ifeq ($(TARGET_PRODUCT),Pixi464G)
+	$(Q)$(MAKE) $(build)=$(boot)/dts/Pixi464G MACHINE=$(MACHINE) dtbs
+endif
+#chuhua.liang for GOPLAY2 sharegit.
+ifeq ($(TARGET_PRODUCT),GOPLAY2)
+        $(Q)$(MAKE) $(build)=$(boot)/dts/GOPLAY2 MACHINE=$(MACHINE) dtbs
+endif
+ifeq ($(TARGET_PRODUCT),Pixi445Cricket)
+	$(Q)$(MAKE) $(build)=$(boot)/dts/Pixi445Cricket MACHINE=$(MACHINE) dtbs
+endif
+ifeq ($(TARGET_PRODUCT),Pixi464GCricket)
+        $(Q)$(MAKE) $(build)=$(boot)/dts/Pixi464GCricket MACHINE=$(MACHINE) dtbs
+endif
 
 zImage-dtb: vmlinux scripts dtbs
 	$(Q)$(MAKE) $(build)=$(boot) MACHINE=$(MACHINE) DTSSUBDIR=$(DTSSUBDIR) $(boot)/$@

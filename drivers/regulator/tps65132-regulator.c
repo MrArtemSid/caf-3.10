@@ -150,7 +150,7 @@ static int tps65132_regulator_enable(struct regulator_dev *rdev)
 
 	return 0;
 }
-
+#if 0//del by yusen.ke.sz@tcl.com for 2nd bias voltage (ktd2151)
 static int tps65132_regulator_get_voltage(struct regulator_dev *rdev)
 {
 	struct tps65132_regulator *vreg = rdev_get_drvdata(rdev);
@@ -180,7 +180,7 @@ static int tps65132_regulator_get_voltage(struct regulator_dev *rdev)
 
 	return vreg->curr_uV;
 }
-
+#endif
 static int tps65132_regulator_set_voltage(struct regulator_dev *rdev,
 		int min_uV, int max_uV, unsigned *selector)
 {
@@ -236,7 +236,7 @@ static int tps65132_regulator_is_enabled(struct regulator_dev *rdev)
 
 static struct regulator_ops tps65132_ops = {
 	.set_voltage = tps65132_regulator_set_voltage,
-	.get_voltage = tps65132_regulator_get_voltage,
+	.get_voltage = NULL,//tps65132_regulator_get_voltage,//modify by yusen.ke.sz@tcl.com for 2nd bias voltage(ktd2151)
 	.list_voltage = tps65132_regulator_list_voltage,
 	.enable = tps65132_regulator_enable,
 	.disable = tps65132_regulator_disable,
@@ -477,7 +477,11 @@ static struct regmap_config tps65132_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
 };
-
+//[Feature]-Add-BEGIN by TCTSZ. lcd 8394F bring up . yusen.ke.sz@tcl.com, 2016/1/26, for PR364368 
+#if   defined (JRD_PROJECT_POP455C)||defined (JRD_PROJECT_GOPLAY2) || defined (JRD_PROJECT_POP455CTMO) || defined (JRD_PROJECT_PIXI445CRICKET)
+struct i2c_client *lcd_client;
+#endif
+//[Feature]-Add-end by TCTSZ. lcd 8394F bring up 
 static int tps65132_regulator_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
@@ -485,7 +489,13 @@ static int tps65132_regulator_probe(struct i2c_client *client,
 	struct regulator_config config = {};
 	struct regulator_desc *rdesc;
 	int i, j, rc;
+//[Feature]-Add-BEGIN by TCTSZ. lcd 8394F bring up . yusen.ke.sz@tcl.com, 2016/1/26, for PR364368 
+    
+#if   defined (JRD_PROJECT_POP455C)||defined (JRD_PROJECT_GOPLAY2) || defined (JRD_PROJECT_POP455CTMO) || defined (JRD_PROJECT_PIXI445CRICKET)
 
+        lcd_client = client;
+#endif
+//[Feature]-Add-end by TCTSZ. lcd 8394F bring up 
 	chip = devm_kzalloc(&client->dev, sizeof(struct tps65132_chip),
 							GFP_KERNEL);
 	if (!chip) {

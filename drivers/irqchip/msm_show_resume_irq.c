@@ -15,7 +15,13 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 
+//[PLATFORM]-Change-BEGIN by TCTSZ. shengwang.luo@tcl.com, for sleep log, 2015/10/12, for PR716604
+#if 1
+int msm_show_resume_irq_mask=1;
+#else
 int msm_show_resume_irq_mask;
+#endif
+//[PLATFORM]-Change-END by TCTSZ. shengwang.luo@tcl.com, for sleep log, 2015/10/12, for PR716604
 
 module_param_named(
 	debug_mask, msm_show_resume_irq_mask, int, S_IRUGO | S_IWUSR | S_IWGRP

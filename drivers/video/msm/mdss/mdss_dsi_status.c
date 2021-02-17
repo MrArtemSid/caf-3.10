@@ -30,7 +30,19 @@
 #include "mdss_panel.h"
 #include "mdss_mdp.h"
 
+//[Feature]-Add-BEGIN by TCTSZ. lcd esd check . yusen.ke.sz@tcl.com, 2015/11/27, for PR364368 
+#if defined(JRD_PROJECT_POP455C)
 #define STATUS_CHECK_INTERVAL_MS 5000
+/*[Feature]-Add-BEGIN by TCTSZ.yaohui.zeng,2015/12/24,Modify LCD ESD check frequency */
+#elif defined(JRD_PROJECT_PIXI464G) || defined(JRD_PROJECT_PIXI464GCRICKET)
+#define STATUS_CHECK_INTERVAL_MS 2000
+#else
+/*[PLATFORM]-Mod-END by TCTSZ.yaohui.zeng,2015/12/24 */
+//[Feature]-Add-BEGIN by TCTSZ.  yusen.ke.sz@tcl.com, 2015/6/19, for PR364368 
+
+#define STATUS_CHECK_INTERVAL_MS 5000
+#endif
+
 #define STATUS_CHECK_INTERVAL_MIN_MS 50
 #define DSI_STATUS_CHECK_INIT -1
 #define DSI_STATUS_CHECK_DISABLE 1
@@ -67,6 +79,7 @@ static void check_dsi_ctrl_status(struct work_struct *work)
 		return;
 	}
 
+    pr_debug("===========check_dsi_ctrl_status : start LCD recovery work\n");//modify by  yusen.ke.sz@tcl.com, at 2015/12/31, for del log print
 	pdsi_status->mfd->mdp.check_dsi_status(work, interval);
 }
 

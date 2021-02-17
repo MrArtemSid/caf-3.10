@@ -101,12 +101,41 @@ enum {
 	SMEM_BATT_INFO,
 	SMEM_APPS_BOOT_MODE,
 	SMEM_VERSION_FIRST,
+	//[Feature]-BEGIN by TCTSZ.yongzhong.cheng@tcl.com,2015/11/18,print build version on LCD  
+	SMEM_VERSION_COMMON = 111,
+	//[Feature]-BEGIN by TCTSZ.yongzhong.cheng@tcl.com,2015/11/18,print build version on LCD  	
+//[Feature]-END by TCTSZ.yongzhong.cheng@tcl.com,2015/11/17,one_image		
+        SMEM_VERSION_GPIO_BOARD_ID =113,
+//[Feature]-Add-END by TCTSZ.yongzhong.cheng@TCL.com, 2015/6/29,for  ALM391327
+//[Feature]-Add-BEGIN by TCTSZ. yongzhong.cheng@tcl.com,2015/6/25,for ALM366701:print reason in kernel
+//[Feature]-Add-BEGIN by TCTSZ. add board id for Pixi4454GEVDO shengwang.luo@tcl.com, 2015/07/06, for Task415198
+#ifdef JRD_PROJECT_PIXI4454GEVDO
+	SMEM_VERSION_PROJECT_NAME =114,
+#endif
+//[Feature]-Add-BEGIN by TCTSZ. shengwang.luo@tcl.com, 2015/07/06, for Task415198
+    SMEM_VERSION_OEM_STATUS = 115, /*add by lingchan.hu@tcl.com for store efuse state PR-1783379*/
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+	SMEM_SSR_NAME = 116,	
+	SMEM_PANIC_CPU = 117,	
+	SMEM_PANIC_PID = 118,		
+	SMEM_LR_INFO = 119,	
+	SMEM_PC_INFO = 120,
+	SMEM_STACK = 121,
+	//yongzhong.cheng@tcl.com,TASK-1220939,2015/12/24,trace otg uart log
+	SMEM_BATTERY_VOLTAGE=122,
+	//yongzhong.cheng@tcl.com,TASK-1220939,2015/12/24,trace otg uart log
+	SMEM_SSR_REASON_OTHER = 123,
+#endif
+//End add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+    SMEM_PON_POFF_REASON = 124,
+//[Feature]-Add-END by TCTSZ. yongzhong.cheng@TCL.com, 2015/6/25,for ALM366701
 	SMEM_VERSION_SMD = SMEM_VERSION_FIRST,
 	SMEM_VERSION_LAST = SMEM_VERSION_FIRST + 24,
 	SMEM_OSS_RRCASN1_BUF1,
 	SMEM_OSS_RRCASN1_BUF2,
 	SMEM_ID_VENDOR0,
-	SMEM_ID_VENDOR1,
+	SMEM_ID_VENDOR1,/*SMEM_ID_VENDOR1 used for spc check result by lingchan.hu@tcl.com PR-1534386*/
 	SMEM_ID_VENDOR2,
 	SMEM_HW_SW_BUILD_ID,
 	SMEM_SMD_BASE_ID_2,

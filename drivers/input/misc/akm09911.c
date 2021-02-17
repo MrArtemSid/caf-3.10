@@ -37,7 +37,13 @@
 #include <linux/sensors.h>
 
 #define AKM_DEBUG_IF			0
+
+// [Feature]-Modify-BEGIN by TCTSZ. add for reset pin conctrl shengwang.luo@tcl.com, 2015/10/12, for Task716567
+/* AKM_HAS_RESET: include software reset and hardware reset, should keep 1*/
 #define AKM_HAS_RESET			1
+/* AKM_HAS_RESET_PIN: 0=no hardware reset, only has software reset; 1=has hardware reset */
+#define AKM_HAS_RESET_PIN		0
+// [Feature]-Modify-END by TCTSZ. shengwang.luo@tcl.com, 2015/10/12, for Task716567
 #define AKM_INPUT_DEVICE_NAME	"compass"
 #define AKM_DRDY_TIMEOUT_MS		100
 #define AKM_BASE_NUM			10
@@ -72,9 +78,11 @@ struct akm_compass_data {
 	struct input_dev	*input;
 	struct device		*class_dev;
 	struct class		*compass;
+	#if AKM_HAS_RESET_PIN
 	struct pinctrl		*pinctrl;
 	struct pinctrl_state	*pin_default;
 	struct pinctrl_state	*pin_sleep;
+	#endif
 	struct sensors_classdev	cdev;
 	struct delayed_work	dwork;
 	struct workqueue_struct	*work_queue;
@@ -125,7 +133,7 @@ static struct sensors_classdev sensors_cdev = {
 	.handle = SENSORS_MAGNETIC_FIELD_HANDLE,
 	.type = SENSOR_TYPE_MAGNETIC_FIELD,
 	.max_range = "1228.8",
-	.resolution = "0.6",
+        .resolution = "0.6",
 	.sensor_power = "0.35",
 	.min_delay = 10000,
 	.max_delay = 10000,
@@ -579,7 +587,7 @@ AKECS_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case ECS_IOCTL_RESET:
 		dev_vdbg(&akm->i2c->dev, "IOCTL_RESET called.");
-		ret = AKECS_Reset(akm, akm->gpio_rstn);
+		ret = AKECS_Reset(akm, AKM_HAS_RESET_PIN);
 		if (ret < 0)
 			return ret;
 		break;
@@ -1211,11 +1219,11 @@ static ssize_t akm_sysfs_asa_show(
 	err = AKECS_SetMode(akm, AKM_MODE_FUSE_ACCESS);
 	if (err < 0)
 		return err;
-
-	asa[0] = AKM_FUSE_1ST_ADDR;
-	err = akm_i2c_rxdata(akm->i2c, asa, 3);
-	if (err < 0)
-		return err;
+	
+		asa[0] = AKM_FUSE_1ST_ADDR;
+		err = akm_i2c_rxdata(akm->i2c, asa, 3);
+		if (err < 0)
+			return err;
 
 	err = AKECS_SetMode(akm, AKM_MODE_POWERDOWN);
 	if (err < 0)
@@ -1494,18 +1502,20 @@ static int akm_compass_suspend(struct device *dev)
 		else
 			cancel_delayed_work_sync(&akm->dwork);
 	}
-
+	/*
 	ret = AKECS_SetMode(akm, AKM_MODE_POWERDOWN);
 	if (ret)
 		dev_warn(&akm->i2c->dev, "Failed to set to POWERDOWN mode.\n");
-
+	*/
 	akm->state.power_on = akm->power_enabled;
 	if (akm->state.power_on)
 		akm_compass_power_set(akm, false);
 
+	#if AKM_HAS_RESET_PIN
 	ret = pinctrl_select_state(akm->pinctrl, akm->pin_sleep);
 	if (ret)
 		dev_err(dev, "Can't select pinctrl state\n");
+	#endif
 
 	dev_dbg(&akm->i2c->dev, "suspended\n");
 
@@ -1518,9 +1528,11 @@ static int akm_compass_resume(struct device *dev)
 	int ret = 0;
 	uint8_t mode;
 
+	#if AKM_HAS_RESET_PIN
 	ret = pinctrl_select_state(akm->pinctrl, akm->pin_default);
 	if (ret)
 		dev_err(dev, "Can't select pinctrl state\n");
+	#endif
 
 	if (akm->state.power_on) {
 		ret = akm_compass_power_set(akm, true);
@@ -1570,11 +1582,11 @@ static int akm09911_i2c_check_device(
 	err = AKECS_SetMode(akm, AK09911_MODE_FUSE_ACCESS);
 	if (err < 0)
 		return err;
-
-	akm->sense_conf[0] = AK09911_FUSE_ASAX;
-	err = akm_i2c_rxdata(client, akm->sense_conf, AKM_SENSOR_CONF_SIZE);
-	if (err < 0)
-		return err;
+	
+		akm->sense_conf[0] = AK09911_FUSE_ASAX;
+		err = akm_i2c_rxdata(client, akm->sense_conf, AKM_SENSOR_CONF_SIZE);
+		if (err < 0)
+			return err;
 
 	err = AKECS_SetMode(akm, AK09911_MODE_POWERDOWN);
 	if (err < 0)
@@ -1738,6 +1750,7 @@ static int akm_compass_parse_dt(struct device *dev,
 
 	akm->auto_report = of_property_read_bool(np, "akm,auto-report");
 	akm->use_hrtimer = of_property_read_bool(np, "akm,use-hrtimer");
+#if AKM_HAS_RESET_PIN
 	akm->gpio_rstn = of_get_named_gpio_flags(dev->of_node,
 			"akm,gpio_rstn", 0, NULL);
 
@@ -1746,7 +1759,7 @@ static int akm_compass_parse_dt(struct device *dev,
 			akm->gpio_rstn);
 		return -EINVAL;
 	}
-
+#endif
 	return 0;
 }
 #else
@@ -1757,6 +1770,7 @@ static int akm_compass_parse_dt(struct device *dev,
 }
 #endif /* !CONFIG_OF */
 
+#if AKM_HAS_RESET_PIN
 static int akm_pinctrl_init(struct akm_compass_data *akm)
 {
 	struct i2c_client *client = akm->i2c;
@@ -1781,6 +1795,7 @@ static int akm_pinctrl_init(struct akm_compass_data *akm)
 
 	return 0;
 }
+#endif
 
 static int akm_report_data(struct akm_compass_data *akm)
 {
@@ -2116,6 +2131,7 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	int err = 0;
 	int i;
 
+	printk("[%s]: Enter!\n", __func__);
 	dev_dbg(&client->dev, "start probing.");
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
@@ -2147,6 +2163,7 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	atomic_set(&s_akm->drdy, 0);
 
 	s_akm->enable_flag = 0;
+	s_akm->power_enabled = 0;
 
 	/* Set to 1G in Android coordination, AKSC format */
 	s_akm->accel_data[0] = 0;
@@ -2184,6 +2201,7 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	/* set client data */
 	i2c_set_clientdata(client, s_akm);
 
+	#if AKM_HAS_RESET_PIN
 	/* initialize pinctrl */
 	if (!akm_pinctrl_init(s_akm)) {
 		err = pinctrl_select_state(s_akm->pinctrl, s_akm->pin_default);
@@ -2192,9 +2210,10 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 			goto exit2;
 		}
 	}
+	#endif
 
 	/* Pull up the reset pin */
-	AKECS_Reset(s_akm, 1);
+	AKECS_Reset(s_akm, AKM_HAS_RESET_PIN);
 
 	/* check connection */
 	err = akm_compass_power_init(s_akm, 1);
@@ -2284,6 +2303,7 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	akm_compass_power_set(s_akm, false);
 
 	dev_info(&client->dev, "successfully probed.");
+	printk("[%s]: successful!\n", __func__);
 	return 0;
 
 exit8:
@@ -2303,6 +2323,7 @@ exit2:
 	kfree(s_akm);
 exit1:
 exit0:
+	printk("[%s]: failed!\n", __func__);
 	return err;
 }
 

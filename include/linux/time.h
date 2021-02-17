@@ -54,6 +54,9 @@ extern unsigned long mktime(const unsigned int year, const unsigned int mon,
 
 extern void set_normalized_timespec(struct timespec *ts, time_t sec, s64 nsec);
 
+/* add by xiaoju.liang@tcl.com */
+extern void set_localtimezone_timespec(struct timespec *ts);
+
 /*
  * timespec_add_safe assumes both values are positive and checks
  * for overflow. It will return TIME_T_MAX if the reutrn would be

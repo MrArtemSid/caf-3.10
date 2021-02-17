@@ -64,3 +64,11 @@ obj-$(CONFIG_LEDS_DAC124S085)		+= leds-dac124s085.o
 
 # LED Triggers
 obj-$(CONFIG_LEDS_TRIGGERS)		+= trigger/
+# [Feature]-Add-BEGIN by TCTSZ. add sn3191 device for leds driver porting junfeng.zhou.sz@tcl.com, 2015/6/19, for PR367664
+obj-$(CONFIG_LEDS_SN3191)		+= leds-sn3191.o
+# [Feature]-Add-END by TCTSZ. junfeng.zhou.sz@tcl.com, 2015/6/19, for PR367664
+
+#add by jin.xia for  LEDS-3721SNKK2C driver porting 2016-3-16
+obj-$(CONFIG_LEDS_3721SNKK2C)           +=leds-gpio-flash-3721s.o
+#add end
+

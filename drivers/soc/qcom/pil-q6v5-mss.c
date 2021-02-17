@@ -41,6 +41,15 @@
 #define PROXY_TIMEOUT_MS	10000
 #define MAX_SSR_REASON_LEN	81U
 #define STOP_ACK_TIMEOUT_MS	1000
+/* [Feature]-Add-Begin by TCTSZ. Add modem restart reason to klog wenzhao.guo@tcl.com, 2016/02/15, for [Task-1401100] */
+#include <linux/klog.h>
+#undef pr_err
+#undef pr_info
+#undef pr_warn
+#define pr_err ssr_print
+#define pr_info ssr_print
+#define pr_warn ssr_print
+/* [Feature]-Add-End by TCTSZ. Add modem restart reason to klog wenzhao.guo@tcl.com, 2016/02/15, for [Task-1401100] */
 
 #define subsys_to_drv(d) container_of(d, struct modem_data, subsys_desc)
 
@@ -48,6 +57,11 @@ static void log_modem_sfr(void)
 {
 	u32 size;
 	char *smem_reason, reason[MAX_SSR_REASON_LEN];
+	//add by (TCTSZ) wenzhao.guo@tcl.com for RAMdump UI begin
+#ifdef CONFIG_JRD_RAMDUMP_UI
+	char *smem_reason_modem = NULL;
+#endif
+	//add by (TCTSZ) wenzhao.guo@tcl.com for RAMdump UI end
 
 	smem_reason = smem_get_entry_no_rlock(SMEM_SSR_REASON_MSS0, &size, 0,
 							SMEM_ANY_HOST_FLAG);
@@ -62,6 +76,17 @@ static void log_modem_sfr(void)
 
 	strlcpy(reason, smem_reason, min(size, MAX_SSR_REASON_LEN));
 	pr_err("modem subsystem failure reason: %s.\n", reason);
+	//add by (TCTSZ) wenzhao.guo@tcl.com for RAMdump UI begin
+#ifdef CONFIG_JRD_RAMDUMP_UI
+	smem_reason_modem = smem_alloc(SMEM_SSR_REASON_OTHER, 15*sizeof(unsigned int), 0, SMEM_ANY_HOST_FLAG);
+	if(smem_reason_modem == NULL)
+		pr_err("SMEM_SSR_REASON_OTHER smem_alloc failed!\n");
+	else {
+		snprintf(smem_reason_modem, strlen(reason) + 1, "%s", reason);
+		printk("Save modem crash reason to smem done!\n");
+	}
+#endif
+	//add by (TCTSZ) wenzhao.guo@tcl.com for RAMdump UI end
 
 	smem_reason[0] = '\0';
 	wmb();

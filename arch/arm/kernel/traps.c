@@ -233,12 +233,21 @@ void show_stack(struct task_struct *tsk, unsigned long *sp)
 #define S_ISA " ARM"
 #endif
 
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+bool die_flag = false;
+#endif
+//End add
 static int __die(const char *str, int err, struct pt_regs *regs)
 {
 	struct task_struct *tsk = current;
 	static int die_counter;
 	int ret;
-
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+	die_flag = true;	
+#endif
+//End add
 	printk(KERN_EMERG "Internal error: %s: %x [#%d]" S_PREEMPT S_SMP
 	       S_ISA "\n", str, err, ++die_counter);
 
@@ -255,10 +264,16 @@ static int __die(const char *str, int err, struct pt_regs *regs)
 	if (!user_mode(regs) || in_interrupt()) {
 		dump_mem(KERN_EMERG, "Stack: ", regs->ARM_sp,
 			 THREAD_SIZE + (unsigned long)task_stack_page(tsk));
+		printk(KERN_EMERG "=============dump begin=========\n");//add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
 		dump_backtrace(regs, tsk);
+		printk(KERN_EMERG "=============dump end===========\n");//add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
 		dump_instr(KERN_EMERG, regs);
 	}
-
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+	die_flag = false;
+#endif
+//End add
 	return 0;
 }
 

@@ -84,3 +84,47 @@ obj-$(CONFIG_TOUCHSCREEN_GT9XX)		+= gt9xx/
 obj-$(CONFIG_TOUCHSCREEN_BU21150)	+= bu21150.o
 obj-$(CONFIG_INPUT_MT_WRAPPER)		+= input_mt_wrapper.o
 obj-$(CONFIG_TOUCHSCREEN_IT7260_I2C)    += it7258_ts_i2c.o
+
+#[Feature] Add Begin by hong.lan@tcl.com for touchpanel driver Pop4-5C 2016/09/01 TASK:538578
+obj-$(CONFIG_TOUCHSCREEN_GT615)       += pop45c/gt615/
+obj-$(CONFIG_TOUCHSCREEN_FTS)		+= pop45c/focaltech/
+#[Feature] Add End by hong.lan@tcl.com for touchpanel driver  Pop4-5C 2016/09/01 TASK:538578
+
+#[Feature] Add Begin by hong.lan@tcl.com for touchpanel driver Pop4-5.5C 2016/09/21 TASK:538578
+obj-$(CONFIG_TOUCHSCREEN_FTS_FT5346I)		+= pop455c/ft5346i/
+obj-$(CONFIG_TOUCHSCREEN_GT5668)		+= pop455c/gt5668/
+#[Feature] Add End by hong.lan@tcl.com for touchpanel driver  Pop4-5.5C 2016/09/21 TASK:538578
+
+#[Feature] Add Begin by hong.lan@tcl.com for pop45 himax825 2015/11/20 
+obj-$(CONFIG_TOUCHSCREEN_HIMAX_HX852xES)      += pop45/hx852xes/
+#[Feature] Add End by hong.lan@tcl.com for pop45 himax825 2015/11/20 
+
+#[Feature] Add Begin by weigeng.huang@tcl.com for Pixi4554G himax825 2016/3/4 
+obj-$(CONFIG_TOUCHSCREEN_PIXI4554G_HIMAX)      += Pixi4554G/hx852xes/
+#[Feature] Add End by weigeng.huang@tcl.com for Pixi4554G himax825 2016/3/4 
+
+#[Feature] Add Begin by hong.lan@tcl.com for touchpanel driver Pixi3454GSPR 2015/10/29 TASK:844578
+obj-$(CONFIG_FT6336_TOUCHPANEL_DRIVER)		+= Pixi3454GSPR/ft6336/
+#[Feature] Add End by hong.lan@tcl.com for touchpanel driver Pixi3454GSPR 2015/10/29 TASK:844578
+
+#[Feature] Add Begin by hong.lan@tcl.com touch panel driver 2015/12/03
+obj-$(CONFIG_TOUCHSCREEN_GT615_POP45)       += pop45/gt615/
+obj-$(CONFIG_TOUCHSCREEN_FTS_FT3427)		+= pop45/ft3427/
+#[Feature] Add End by hong.lan@tcl.com touch panel driver 2015/12/03
+
+#[Feature] Add Begin by hong.lan@tcl.com for touchpanel driver Pixi445SPR 2015/12/11 PR:359508
+obj-$(CONFIG_FT3307_TOUCHPANEL_DRIVER)		+= Pixi445SPR/ft3307/
+#[Feature] Add End by hong.lan@tcl.com for touchpanel driver Pixi445SPR 2015/12/11 PR:359508
+
+#[Feature] Add Begin by falin.luo@tcl.com for touchpanel driver Pixi4-6-4G 2015/12/18
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_S2333)		+= Pixi464G/s2333/
+obj-$(CONFIG_TOUCHSCREEN_MELFAS_MMS438)		        += Pixi464G/melfas_mip4_mms438/
+#[Feature] Add End by falin.luo@tcl.com for touchpanel driver Pixi4-6-4G 2015/12/18
+
+##[Feature] Add Begin by weigeng.huang@tcl.com for touchpanel driver GoPlay2 2016/01/07
+obj-$(CONFIG_TOUCHSCREEN_GT615_GOPLAY2)		+= Goplay2/gt615/
+#[Feature] Add End by weigeng.huang@tcl.com for touchpanel driver GoPlay2 2016/01/07
+#Add Pixi445Cricket's TP by TCT-CD ke.li@tcl.com  2016.2.17
+obj-$(CONFIG_TOUCHSCREEN_MSG2238_POP445C)	+= pixi445c/msg2238/
+obj-$(CONFIG_TOUCHSCREEN_FT3307_POP445C)	+= pixi445c/ft3307/
+#Add Pixi445Cricket's TP by TCT-CD ke.li@tcl.com  2016.2.17

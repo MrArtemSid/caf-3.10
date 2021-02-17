@@ -209,6 +209,24 @@ config GC0310
 		Preview and snapshot resolution shall be 640*480 at 30 fps,
 		It does not support auto focus.
 
+config GC0310_YUV_PIXI455TF
+	bool "Sensor GC0310_YUV_PIXI455TF (YUV .3M)"
+	depends on MSMB_CAMERA
+	---help---
+		0310_yuv_pixi455tf is a Galaxycore .3 MP YUV Sensor.
+		It supports 1 mipi lane.
+		Preview and snapshot resolution shall be 640*480 at 30 fps,
+		It does not support auto focus.
+config GC0310_YUV_SHINETCH
+	bool "Sensor GC0310_YUV_SHINETCH (YUV .3M)"
+	depends on MSMB_CAMERA
+	---help---
+		0310_yuv_shinetch is a Galaxycore .3 MP YUV Sensor.
+		It supports 1 mipi lane.
+		Preview and snapshot resolution shall be 640*480 at 30 fps,
+		It does not support auto focus.
+
+
 config OV8825
 	bool "OmniVision OV8825 (BAYER 8MP)"
 	depends on MSMB_CAMERA
@@ -273,3 +291,64 @@ config MSM_FD
 	 depends on MSMB_CAMERA
 	 ---help---
 	    Enables support for the MSM FD face detection engine.
+
+config OV8858_OTP
+    bool "ov8858 sensor otp config"
+    depends on MSMB_CAMERA
+    ---help---
+      ov8858 sensor otp config.
+
+config OV5670_OTP
+    bool "ov5670 sensor otp config"
+    depends on MSMB_CAMERA
+    ---help---
+      ov5670 sensor otp config.
+
+config S5K4H8_TRULY_OTP
+    bool "s5k4h8 sensor otp config"
+    depends on MSMB_CAMERA
+    ---help---
+      s5k4h8 sensor otp config.
+
+config OV8856_SUNNY_OTP
+    bool "ov8856 sensor otp config"
+    depends on MSMB_CAMERA
+    ---help---
+      ov8856 sensor otp config.
+
+config S5K4H8_OTP
+    bool "s5k4h8 sensor otp config"
+    depends on MSMB_CAMERA
+    ---help---
+      s5k4h8 sensor otp config.
+      
+config S5K5E8_OTP
+    bool "s5k5e8 sensor otp config"
+    depends on MSMB_CAMERA
+    ---help---
+      s5k5e8 sensor otp config.
+      
+config OV8865_OTP
+    bool "ov8865 sensor otp config"
+    depends on MSMB_CAMERA
+    ---help---
+      ov8865 sensor otp config.
+      
+config GC0310_SUNRISE
+    bool "Galaxy GC0310 YUV sensor"
+    depends on MSMB_CAMERA
+    ---help---
+      Galaxy GC0310 YUV sensor.
+
+config SP0A20_SUNRISE
+    bool "Superpix SP0A20 YUV sensor"
+    depends on MSMB_CAMERA
+    ---help---
+      Superpix SP0A20 YUV sensor.
+
+config HI553_KINGCOME_OTP
+    bool "HI553 sensor otp config"
+    depends on MSMB_CAMERA
+    ---help---
+      HI553 sensor otp config.
+

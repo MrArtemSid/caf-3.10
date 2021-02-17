@@ -774,6 +774,16 @@ config SENSORS_AKM09911
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called akm09911.
+# add begin by haimei.liu@tcl.com for AKM09916 compass driver 2015/11/24 for task858871
+config SENSORS_AKM09916
+	tristate "AKM09916 3-axis electronic compass sensor driver"
+	depends on I2C
+	help
+	  Say Y here if you want to enable the akm09916 ecompass sensor
+	  driver.
+	  To compile this driver as a module, choose M here: the
+	  module will be called akm09916.
+# add end by haimei.liu@tcl.com for AKM09916 compass driver 2015/11/24 for task858871
 
 config SENSORS_AKM8963
 	tristate "AKM8963 3-axis electronic compass sensor driver"
@@ -849,6 +859,82 @@ config SENSORS_BMI058
 	help
 	 If you say yes here, you get support for Bosch Sensortec's
 	 sensor driver of BMI058.
+# add by shengwang.luo for accelerometer begin, 20141226
+config SENSORS_LIS2DE
+	tristate "ST LIS2DE 3-axis digital acceleromater"
+	depends on I2C
+	help
+	  Say Y here if you want to support STMicroelectronics LIS2DE
+	  accelerometer connected via an I2C bus.
 
+	  To compile this driver as a module, choose M here: the
+	  module will be called lis2de_acc.
+# add by shengwang.luo for accelerometer end, 20141226
+
+#[Feature]=Add-Begin by TCTSZ falin.luo@tcl.com for lis2de g-sensor 2015/12/21
+config SENSORS_LIS2DE_TCT
+       tristate "ST LIS2DE 3-axis digital acceleromater"
+       depends on I2C
+       help
+         Say Y here if you want to support STMicroelectronics LIS2DE
+         accelerometer connected via an I2C bus.
+
+         To compile this driver as a module, choose M here: the
+         module will be called lis2de_tct.
+#[Feature]=Add-End by TCTSZ falin.luo@tcl.com for lis2de g-sensor 2015/12/21
+
+#[Feature]-Add-BEGIN by TCTSZ. ning.wei@tcl.com, 2015/10/12, for ALM717154:add p/l sensor driver
+config SENSORS_STK3X1X_TCT
+	tristate "STK3X1X TCT device driver"
+	depends on I2C
+	help
+	  Say Y here you want to enable for the sitronix stk3x1x tct
+	  light and proximity sensors driver.
+#[Feature]-Add-END by TCTSZ. ning.wei@TCL.com, 2015/10/12, for  ALM717154
+
+
+#[Feature]-Add-BEGIN by TCTSZ. weigeng.huang@tcl.com,2016/2/29 for p-sensor driver
+source "drivers/input/misc/Pixi445SPR/Kconfig"
+#[Feature]-Add-END by TCTSZ. weigeng.huang@TCL.com, 2016/2/29 for p-sensor driver
+
+
+#[Feature]-Add-BEGIN by TCTSZ. ning.wei@tcl.com, 2015/10/12, for ALM717154:add p/l sensor driver
+config SENSORS_EPL259X
+	tristate "EPL259X PL-sensor device driver"
+	depends on I2C
+	help
+	  Say Y here you want to enable for the sitronix stk3x1x tct
+	  light and proximity sensors driver.
+#[Feature]-Add-END by TCTSZ. ning.wei@TCL.com, 2015/10/12, for  ALM717154
+
+# [Feature]-Add-BEGIN by TCTSZ. weigeng.huang@tcl.com, add gpio and spmi interface for engineer mode driver , 2015/11/03, ALM:859179 
+config EMODE_GPIO
+	tristate "engineer mode gpio test support"
+	depends on i2c=y
+	help
+	    Say Y here you want to enable engineer mode gpio test
+# [Feature]-Add-END by TCTSZ. weigeng.huang@tcl.com, add gpio and spmi interface for engineer mode driver , 2015/6/03, ALM:859179 
+
+#[Feature]-Add-BEGIN by TCTSZ. shengwang.luo@tcl.com, add MMC3530KJ driver, 2015/11/20
+source "drivers/input/misc/mmc3530/Kconfig"
+#[Feature]-Add-END by TCTSZ. shengwang.luo@tcl.com, 2015/11/20
 endif
-
+#Add Sensor drvier for Pixi445Cricket by TCT-CD ke.li@tcl.com   2015.2.17   Begin
+config PIXI445CRICKET
+	tristate "BMA2x2 acceleration sensor support"
+	depends on I2C
+	help
+	  If you say yes here, you get support for Bosch Sensortec's
+	  acceleration sensors BMA255/BMA254/BMA355/BMA250E/BMA222E/BMA280.
+source "drivers/input/misc/pixi445c/Kconfig"
+#Add Sensor drvier for Pixi445Cricket by TCT-CD ke.li@tcl.com   2015.2.17   End
+# add begin by haimei.liu@tcl.com for AKM0991x compass driver 
+config SENSORS_AKM0991x
+	tristate "AKM0991x 3-axis electronic compass sensor driver"
+	depends on I2C
+	help
+	  Say Y here if you want to enable the akm0991x ecompass sensor
+	  driver.
+	  To compile this driver as a module, choose M here: the
+	  module will be called akm0991x.
+# add end by haimei.liu@tcl.com for AKM0991x compass driver 

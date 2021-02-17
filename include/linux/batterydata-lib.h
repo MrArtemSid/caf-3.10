@@ -15,6 +15,10 @@
 
 #include <linux/errno.h>
 
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for batterydata-VMBMS data update baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+
+
+
 #define FCC_CC_COLS		5
 #define FCC_TEMP_COLS		8
 
@@ -23,9 +27,18 @@
 
 #define PC_TEMP_ROWS		31
 #define PC_TEMP_COLS		8
+#if defined (JRD_PROJECT_POP45C)||defined (JRD_PROJECT_POP455C) || defined (JRD_PROJECT_POP45) || defined (JRD_PROJECT_PIXI445SPR) || defined (JRD_PROJECT_PIXI464G) || defined (JRD_PROJECT_GOPLAY2) || defined (JRD_PROJECT_PIXI445CRICKET) || defined (JRD_PROJECT_PIXI464GCRICKET) || defined(JRD_PROJECT_POP455CTMO) || defined(JRD_PROJECT_PIXI4554G)
 
+#define ACC_IBAT_ROWS		6
+#define ACC_TEMP_COLS		3  		
+#else
 #define ACC_IBAT_ROWS		4
-#define ACC_TEMP_COLS		3
+#define ACC_TEMP_COLS		4  
+#endif
+//#define ACC_IBAT_ROWS		4
+//#define ACC_TEMP_COLS		3
+
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/7/27, for PR438948
 
 #define MAX_SINGLE_LUT_COLS	20
 

@@ -16,9 +16,11 @@
 #include <linux/power_supply.h>
 #include <linux/slab.h>
 #include <linux/stat.h>
-
+//[Feature]-Add-by TCTSZ.Del qcom for print log  baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 #include "power_supply.h"
-
+#include <linux/rtc.h>
+#include <linux/time.h>
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR PR716604
 /*
  * This is because the name "current" breaks the device attr macro.
  * The "current" word resolves to "(get_current())" so instead of
@@ -39,7 +41,14 @@
 }
 
 static struct device_attribute power_supply_attrs[];
-
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for print log  baili.ouyang.sz@tcl.com,2015/10/12, for PR716604
+static int batt_voltage=0, batt_curr=0xFFFF, batt_temp=-500, batt_cap=-1;
+static char status[12]={};
+static char health[24]={};
+static char charging_type[12]={};
+static int charger_input_voltage=0;
+static char batt_id[128]={};//add battery id voltage
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 static ssize_t power_supply_show_property(struct device *dev,
 					  struct device_attribute *attr,
 					  char *buf) {
@@ -88,6 +97,69 @@ static ssize_t power_supply_show_property(struct device *dev,
 				attr->attr.name, ret);
 		return ret;
 	}
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for print log  baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+	if(strcmp(psy->name, "battery") == 0)
+	{
+		if(off == POWER_SUPPLY_PROP_VOLTAGE_NOW)
+			batt_voltage=(int)value.intval;
+		else if(off == POWER_SUPPLY_PROP_CURRENT_NOW)
+			batt_curr=(int)value.intval;
+		else if (off == POWER_SUPPLY_PROP_TEMP)
+			batt_temp=(int)value.intval;
+		else if (off == POWER_SUPPLY_PROP_CAPACITY)
+			batt_cap=(int)value.intval;
+		else if (off == POWER_SUPPLY_PROP_STATUS){
+			memset(&status, 0, sizeof(status));
+			sprintf(status, "%s", status_text[value.intval]);
+		}
+		else if (off == POWER_SUPPLY_PROP_HEALTH){
+			memset(&health, 0, sizeof(health));
+			sprintf(health, "%s", health_text[value.intval]);
+		}
+		else if (off == POWER_SUPPLY_PROP_CHARGER_INPUT_VOLTAGE){
+			charger_input_voltage = (int)value.intval;
+		}
+		else if (off == POWER_SUPPLY_PROP_BATT_ID){
+		memset(&batt_id, 0, sizeof(batt_id));
+#if defined (JRD_PROJECT_POP45C)||defined (JRD_PROJECT_POP455C)
+	if((value.intval>400000) && (value.intval<500000))		//BYD ID
+	{
+		sprintf(batt_id,"BYD_TLp025C1_%dmv",value.intval/1000);
+	}
+	else if((value.intval>540000) && (value.intval<670000))		//SCUD ID
+	{
+		sprintf(batt_id,"SCUD_TLp025C2_%dmv",value.intval/1000);
+	}
+#elif defined (JRD_PROJECT_POP45)|| defined(JRD_PROJECT_PIXI4554G)
+//[Feature]-Add-BEGIN by TCTSZ Battery_ID baili.ouyang.sz@tcl.com, 2016/02/17, for Task 1163258
+	if((value.intval>700000) && (value.intval<1100000))		//blbattery ID
+	{
+		sprintf(batt_id,"JIADE_JIADE2500_%dmv",value.intval/1000);
+	}
+	else if((value.intval>50000) && (value.intval<250000))		//veken ID
+	{
+		sprintf(batt_id,"VEKEN_TLp025H7_%dmv",value.intval/1000);
+	}
+	else if((value.intval>300000) && (value.intval<600000))		//BYD ID
+	{
+		sprintf(batt_id,"BYD_TLp025H1_%dmv",value.intval/1000);
+	}
+#else
+	if(1)
+		sprintf(batt_id,"OTHER_PROJECT_BATTEERY_ID_%dmv",value.intval/1000);
+#endif
+	else
+		sprintf(batt_id, "ERROR_BATTERY_ID_%dmv", value.intval/1000);
+	}
+	}
+	if(strcmp(psy->name, "usb") == 0)
+	{
+		if (off == POWER_SUPPLY_PROP_TYPE){
+			memset(&charging_type, 0, sizeof(charging_type));
+			sprintf(charging_type, "%s", type_text[value.intval]);
+		}
+	}
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 
 	if (off == POWER_SUPPLY_PROP_STATUS)
 		return sprintf(buf, "%s\n", status_text[value.intval]);
@@ -105,7 +177,8 @@ static ssize_t power_supply_show_property(struct device *dev,
 		return sprintf(buf, "%s\n", scope_text[value.intval]);
 	else if (off >= POWER_SUPPLY_PROP_MODEL_NAME)
 		return sprintf(buf, "%s\n", value.strval);
-
+	else if (off == POWER_SUPPLY_PROP_BATT_ID)
+		return sprintf(buf, "%s\n", batt_id);
 	if (off == POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT)
 		return sprintf(buf, "%lld\n", value.int64val);
 	else
@@ -195,7 +268,16 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(temp_alert_max),
 	POWER_SUPPLY_ATTR(temp_cool),
 	POWER_SUPPLY_ATTR(temp_warm),
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for different charging current set under different temperature  baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+	POWER_SUPPLY_ATTR(temp_cold),
+	POWER_SUPPLY_ATTR(temp_overheat),
+
+	POWER_SUPPLY_ATTR(temp_voltage), //add by shicuiping for therm adc voltage
+	POWER_SUPPLY_ATTR(power_on_voltage), // [PLATFORM]-Add by TCTSZ.cuiping.shi, for get power on voltage, 2014/09/29
 	POWER_SUPPLY_ATTR(temp_ambient),
+	POWER_SUPPLY_ATTR(batt_id),//add battery id voltage PR1990499
+	POWER_SUPPLY_ATTR(charger_input_voltage),
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 	POWER_SUPPLY_ATTR(temp_ambient_alert_min),
 	POWER_SUPPLY_ATTR(temp_ambient_alert_max),
 	POWER_SUPPLY_ATTR(time_to_empty_now),
@@ -349,6 +431,21 @@ int power_supply_uevent(struct device *dev, struct kobj_uevent_env *env)
 			goto out;
 	}
 
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for print log  baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
+	if(strcmp(psy->name, "battery") == 0)
+	if( batt_voltage!=0 && batt_curr!=0xFFFF && batt_temp!=(-500) && batt_cap!=(-1) )
+	{
+		struct timespec ts;
+		struct rtc_time tm;
+
+		getnstimeofday(&ts);
+		set_localtimezone_timespec(&ts);
+		rtc_time_to_tm(ts.tv_sec, &tm);
+		dev_info(dev, "%d-%02d-%02d %02d:%02d:%02d status:%s%s%s%s,health:%s,voltage:%dmV,capacity:%d,current:%dmA,temperature:%s%d.%dC,chgvoltage:%dmV\n",
+			 tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,tm.tm_hour, tm.tm_min, tm.tm_sec,
+				status,strcmp(status, "Charging")?"":"(",strcmp(status, "Charging")?"":charging_type,strcmp(status, "Charging")?"":")",health,batt_voltage/1000,batt_cap,batt_curr/1000,(batt_temp<0&&(batt_temp/10==0))?"-":"", batt_temp/10,(int)abs(batt_temp%10),charger_input_voltage/1000);
+	}
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2015/10/12, for PR716604
 out:
 	free_page((unsigned long)prop_buf);
 

@@ -366,6 +366,7 @@ struct wcd_mbhc {
 
 	wait_queue_head_t wait_btn_press;
 	bool is_btn_press;
+	bool is_hs_inserted; //add by JRD_SZ(ting.kang@tcl.com), headset debug interface, 20140723
 	u8 current_plug;
 	bool in_swch_irq_handler;
 	bool hphl_swh; /*track HPHL switch NC / NO */
@@ -407,6 +408,7 @@ struct wcd_mbhc {
 
 	/* Work to correct accessory type */
 	struct work_struct correct_plug_swch;
+	struct dentry *debugfs_mbhc; //add by JRD_SZ(ting.kang@tcl.com),headset debug interface,20140723
 	struct notifier_block nblock;
 
 	struct wcd_mbhc_register *wcd_mbhc_regs;

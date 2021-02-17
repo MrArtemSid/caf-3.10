@@ -218,7 +218,6 @@ obj-$(CONFIG_SND_SOC_WCD9310)	+= snd-soc-wcd9310.o
 obj-$(CONFIG_SND_SOC_WCD9320)	+= snd-soc-wcd9320.o
 obj-$(CONFIG_SND_SOC_WCD9306)	+= snd-soc-wcd9306.o
 obj-$(CONFIG_SND_SOC_WCD9330)	+= snd-soc-wcd9330.o
-obj-$(CONFIG_SND_SOC_WCD9335)	+= snd-soc-wcd9335.o
 obj-$(CONFIG_SND_SOC_MSM8X10_WCD)	+= snd-soc-msm8x10-wcd.o wcd9xxx-resmgr.o wcd9xxx-mbhc.o
 obj-$(CONFIG_SND_SOC_WCD9335)	+= snd-soc-wcd9335.o
 obj-$(CONFIG_AUDIO_EXT_CLK)	+= audio-ext-clock.o
@@ -281,6 +280,11 @@ obj-$(CONFIG_SND_SOC_WM9713)	+= snd-soc-wm9713.o
 obj-$(CONFIG_SND_SOC_WM_ADSP)	+= snd-soc-wm-adsp.o
 obj-$(CONFIG_SND_SOC_WM_HUBS)	+= snd-soc-wm-hubs.o
 obj-$(CONFIG_SND_SOC_MSM_STUB)  += snd-soc-msm-stub.o
+#Modify-Begin by TCTSZ. yuchao.pan@tcl.com, configure TFA9888UK and AK4375AECB in codec driver, 20160114
+ifeq ($(TARGET_PRODUCT),GOPLAY2)
+obj-y	+= ak4375/ tfa98xx/
+endif
+#Modify-End by TCTSZ. yuchao.pan@tcl.com, configure TFA9888UK and AK4375AECB in codec driver, 20160114
 
 # Amp
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o

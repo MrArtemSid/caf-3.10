@@ -179,7 +179,15 @@ static struct qpnp_vadc_scale_fn vadc_scale_fn[] = {
 static struct qpnp_vadc_rscale_fn adc_vadc_rscale_fn[] = {
 	[SCALE_RVADC_ABSOLUTE] = {qpnp_vadc_absolute_rthr},
 };
-
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for batt-id-tmp baili.ouyang.sz@tcl.com, 2016/4/22, for Task1163258
+#if defined (JRD_PROJECT_POP45C)||defined (JRD_PROJECT_POP455C)||defined (JRD_PROJECT_POP45)
+//extern int ret_battery_id; //add by junfeng.zhou
+extern int ret_battery_id;
+#endif
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2016/4/22, for Task1163258
+#if defined (JRD_PROJECT_PIXI464G) || defined (JRD_PROJECT_PIXI464GCRICKET)
+extern int PIXI464G_ret_battery_id; //add by huichen
+#endif
 static int32_t qpnp_vadc_read_reg(struct qpnp_vadc_chip *vadc, int16_t reg,
 								u8 *data)
 {
@@ -2367,7 +2375,56 @@ static int qpnp_vadc_probe(struct spmi_device *spmi)
 	vadc->vadc_iadc_sync_lock = false;
 	dev_set_drvdata(&spmi->dev, vadc);
 	list_add(&vadc->list, &qpnp_vadc_device_list);
-
+//add by junfeng.zhou for get battery id index begin
+#if defined (JRD_PROJECT_POP45C)||defined (JRD_PROJECT_POP455C)
+	{
+		struct qpnp_vadc_result result;
+		rc = qpnp_vadc_read(vadc, LR_MUX2_BAT_ID, &result);
+		if (rc) {
+			pr_err("error reading batt id channel = %d, rc = %d\n",
+						LR_MUX2_BAT_ID, rc);
+			return 0;
+		}
+		if((result.physical>400000) && (result.physical<500000))		//BYD ID
+		{
+			ret_battery_id = BYD_ID;
+			pr_info("battery id is right(BYD-TLp025C1),  battery id:  %lu \n", (unsigned long)(result.physical));
+		}
+		else if((result.physical>540000) && (result.physical<670000))		//SCUD ID
+		{
+			ret_battery_id = SCUD_ID;
+			pr_info("battery id is right(SCUD-TLp025C2),  SCUD id:  %lu  \n", (unsigned long)(result.physical));
+		}
+	}
+//[Feature]-Add-BEGIN by TCTSZ.Del qcom for batt-id-tmp baili.ouyang.sz@tcl.com, 2016/4/22, for Task1163258
+#elif defined (JRD_PROJECT_POP45)
+	{
+		struct qpnp_vadc_result result;
+		rc = qpnp_vadc_read(vadc, LR_MUX2_BAT_ID, &result);
+		if (rc) {
+			pr_err("error reading batt id channel = %d, rc = %d\n",
+						LR_MUX2_BAT_ID, rc);
+			return 0;
+		}
+		if((result.physical>700000) && (result.physical<1100000))		//blbattery ID
+		{
+			ret_battery_id = JIADE_ID;
+			pr_info("battery id is right(Jiade),  battery id:  %lu \n", (unsigned long)(result.physical));
+		}
+		else if((result.physical>50000) && (result.physical<250000))		//veken ID
+		{
+			ret_battery_id = VEKEN_ID;
+			pr_info("battery id is right(veken-TLp025H7),  battery id:  %lu \n", (unsigned long)(result.physical));
+		}
+		else if((result.physical>300000) && (result.physical<600000))		//BYD ID
+		{
+			ret_battery_id = BYD_ID;
+			pr_info("battery id is right(BYD-TLp025H1),  battery id:  %lu \n", (unsigned long)(result.physical));
+		}
+	}
+//[Feature]-Add-END by TCTSZ.baili.ouyang.sz@tcl.com, 2016/4/22, for Task1163258
+#endif
+//add by junfeng.zhou end
 	return 0;
 
 err_setup:

@@ -53,6 +53,10 @@
 #include <linux/msm-bus.h>
 #include "msm_serial_hs_hwreg.h"
 
+#if defined(JRD_PROJECT_POP455C)||defined(JRD_PROJECT_PIXI445SPR)|| defined(JRD_PROJECT_POP45)
+extern unsigned int lk_uart_log_flag;//[Feature]-Add-BEGIN by TCTSZ  qian.zhao@tcl.com  for lk_uart_log ,2016/03/09
+#endif
+
 /*
  * There are 3 different kind of UART Core available on MSM.
  * High Speed UART (i.e. Legacy HSUART), GSBI based HSUART
@@ -1500,9 +1504,15 @@ static int msm_hsl_console_setup(struct console *co, char *options)
 	flow = 'n';
 	msm_hsl_write(port, UARTDM_MR2_BITS_PER_CHAR_8 | STOP_BIT_ONE,
 		      regmap[vid][UARTDM_MR2]);	/* 8N1 */
-
+//Begin mod by [TCTSZ] jin.xia@tcl.com, for enhance uart baud rate to 921600,2015-11-10
+#ifdef CONFIG_JRD_921600_UART
+	if (baud < 300 || baud > 921600)
+		baud = 921600;
+#else
 	if (baud < 300 || baud > 115200)
 		baud = 115200;
+#endif
+//End mod
 	msm_hsl_set_baud_rate(port, baud);
 
 	ret = uart_set_options(port, co, baud, parity, bits, flow);
@@ -1963,6 +1973,10 @@ static int __init msm_serial_hsl_init(void)
 {
 	int ret;
 
+	#if defined(JRD_PROJECT_POP455C)||defined(JRD_PROJECT_PIXI445SPR)|| defined(JRD_PROJECT_POP45)
+    if( 1 == lk_uart_log_flag  ){
+	#endif
+	
 	ret = uart_register_driver(&msm_hsl_uart_driver);
 	if (unlikely(ret))
 		return ret;
@@ -1975,8 +1989,14 @@ static int __init msm_serial_hsl_init(void)
 	if (unlikely(ret))
 		uart_unregister_driver(&msm_hsl_uart_driver);
 
-	pr_info("driver initialized\n");
-
+	    pr_info("serial driver initialized!\n");
+		
+    #if defined(JRD_PROJECT_POP455C)||defined(JRD_PROJECT_PIXI445SPR)|| defined(JRD_PROJECT_POP45)
+	}
+    else
+        pr_info("serial driver uninitialized!\n"); 
+    #endif
+	
 	return ret;
 }
 

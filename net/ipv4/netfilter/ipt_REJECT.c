@@ -126,18 +126,25 @@ static void send_reset(struct sk_buff *oldskb, int hook)
 	kfree_skb(nskb);
 }
 
+//modified by qian.zhou.sz@tcl.com, for when data reach limit level device get high risk to crash.
+//case id:02189681 defect:1271246, 668022,1643955
+
 static inline void send_unreach(struct sk_buff *skb_in, int code)
 {
+	if (!skb_in) return ;
+
 	icmp_send(skb_in, ICMP_DEST_UNREACH, code, 0);
 #ifdef CONFIG_IP_NF_TARGET_REJECT_SKERR
 	if (skb_in->sk) {
 		skb_in->sk->sk_err = icmp_err_convert[code].errno;
-		skb_in->sk->sk_error_report(skb_in->sk);
+		if (skb_in->sk->sk_state != TCP_TIME_WAIT)
+			skb_in->sk->sk_error_report(skb_in->sk);
 		pr_debug("ipt_REJECT: sk_err=%d for skb=%p sk=%p\n",
 			skb_in->sk->sk_err, skb_in, skb_in->sk);
 	}
 #endif
 }
+//end modify
 
 static unsigned int
 reject_tg(struct sk_buff *skb, const struct xt_action_param *par)

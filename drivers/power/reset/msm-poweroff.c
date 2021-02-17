@@ -32,6 +32,11 @@
 #include <soc/qcom/restart.h>
 #include <soc/qcom/watchdog.h>
 
+//[Feature]-Add-BEGIN by TCTSZ. yongzhong.cheng@tcl.com, 2015/6/24, 
+//for ALM366701:print UTC time and poweroff reason
+#include <linux/rtc.h>
+//[Feature]-Add-END by TCTSZ. yongzhong.cheng@TCL.com, 2015/6/24, for  ALM366701
+
 #define EMERGENCY_DLOAD_MAGIC1    0x322A4F99
 #define EMERGENCY_DLOAD_MAGIC2    0xC67E4350
 #define EMERGENCY_DLOAD_MAGIC3    0x77777777
@@ -227,6 +232,7 @@ static void msm_restart_prepare(const char *cmd)
 			(in_panic || restart_mode == RESTART_DLOAD));
 #endif
 
+//yongzhong.cheng@tcl.com,task366701,2016/1/18,fix can not enter fastboot by qualcomm new baseline
 	if (qpnp_pon_check_hard_reset_stored()) {
 		/* Set warm reset as true when device is in dload mode
 		 *  or device doesn't boot up into recovery, bootloader or rtc.
@@ -241,6 +247,7 @@ static void msm_restart_prepare(const char *cmd)
 		need_warm_reset = (get_dload_mode() ||
 				(cmd != NULL && cmd[0] != '\0'));
 	}
+
 
 	/* Hard reset the PMIC unless memory contents must be maintained. */
 	if (need_warm_reset) {
@@ -309,6 +316,31 @@ static void deassert_ps_hold(void)
 	__raw_writel(0, msm_ps_hold);
 }
 
+//[Feature]-Add-BEGIN by TCTSZ. yongzhong.cheng@tcl.com, 2015/6/24, 
+//for ALM366701:print UTC time and poweroff reason
+enum msm_type {
+        msm_restart,
+        msm_poweroff,
+};
+
+static void tct_reason_log(int type){
+	struct timespec ts;
+	struct rtc_time tm;
+	
+	getnstimeofday(&ts);
+	rtc_time_to_tm(ts.tv_sec, &tm);
+	
+	if(msm_restart==type){
+		pr_err("Going down for restart now: %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
+		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+	}	
+	if(msm_poweroff==type){
+		pr_err("Going down for poweroff now: %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
+		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+	}
+}
+///[Feature]-Add-END by TCTSZ. yongzhong.cheng@TCL.com, 2015/6/24, for  ALM366701
+
 static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 {
 	int ret;
@@ -318,8 +350,12 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 		.arginfo = SCM_ARGS(2),
 	};
 
-	pr_notice("Going down for restart now\n");
-
+//[Feature]-Add-BEGIN by TCTSZ. yongzhong.cheng@tcl.com, 2015/6/24, 
+//for ALM366701:print UTC time and poweroff reason
+	//pr_notice("Going down for restart now\n");
+	tct_reason_log(msm_restart);
+//[Feature]-Add-END by TCTSZ. yongzhong.cheng@TCL.com, 2015/6/24, for  ALM366701
+	
 	msm_restart_prepare(cmd);
 
 #ifdef CONFIG_MSM_DLOAD_MODE
@@ -356,8 +392,13 @@ static void do_msm_poweroff(void)
 		.args[1] = 0,
 		.arginfo = SCM_ARGS(2),
 	};
-
-	pr_notice("Powering off the SoC\n");
+	
+//[Feature]-Add-BEGIN by TCTSZ. yongzhong.cheng@tcl.com, 2015/6/24, 
+//for ALM366701:print UTC time and poweroff reason
+	tct_reason_log(msm_poweroff);
+	//pr_notice("Powering off the SoC\n");
+//[Feature]-Add-END by TCTSZ. yongzhong.cheng@TCL.com, 2015/6/24, for  ALM366701
+	
 #ifdef CONFIG_MSM_DLOAD_MODE
 	set_dload_mode(0);
 #endif

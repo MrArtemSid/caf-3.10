@@ -1320,6 +1320,12 @@ static ssize_t debug_write_reset(struct file *file, const char __user *buf,
 
 static int serial_debug_open(struct inode *inode, struct file *file)
 {
+	/* [Feature]-Add-BEGIN by TCTSZ. Fix null point error in debugfs or [Task-666533]*/
+	if(!(inode->i_private)){
+		pr_info("%s fail:p_data is null.", __func__);
+		return -1;
+	}
+	/* [Feature]-Add-END by TCTSZ. Fix null point error in debugfs or [Task-666533]*/
 	file->private_data = inode->i_private;
 	return 0;
 }

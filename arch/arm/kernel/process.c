@@ -45,6 +45,11 @@
 
 #ifdef CONFIG_CC_STACKPROTECTOR
 #include <linux/stackprotector.h>
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI	
+#include <soc/qcom/smem.h>
+#endif
+//End add
 unsigned long __stack_chk_guard __read_mostly;
 EXPORT_SYMBOL(__stack_chk_guard);
 #endif
@@ -381,15 +386,101 @@ static void show_extra_register_data(struct pt_regs *regs, int nbytes)
 	show_data(regs->ARM_r10 - nbytes, nbytes * 2, "R10");
 }
 
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+extern bool die_flag;
+#endif
+//End add
 void __show_regs(struct pt_regs *regs)
 {
 	unsigned long flags;
 	char buf[64];
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+	int cpu_id = 0;
+	//int cpu_max = 4;
+	char* smem_panic_cpu = NULL;
+	char* smem_panic_pid = NULL;
+	char* smem_pc = NULL;
+	char* smem_lr = NULL;
+#endif
+//End add
 
 	show_regs_print_info(KERN_DEFAULT);
 
 	print_symbol("PC is at %s\n", instruction_pointer(regs));
 	print_symbol("LR is at %s\n", regs->ARM_lr);
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+	if(die_flag)
+	{
+		//smem_panic_cpu
+		cpu_id = raw_smp_processor_id();		
+		smem_panic_cpu = (char*)smem_alloc(SMEM_PANIC_CPU, 4*sizeof(char),0,SMEM_ANY_HOST_FLAG);
+		if(smem_panic_cpu!=NULL)
+		{
+			//*smem_panic_cpu = (*smem_panic_cpu)|(1<<cpu_id);
+			snprintf(smem_panic_cpu, 4*sizeof(char),"%d",cpu_id);
+			printk(KERN_ERR"====SMEM_PANIC_CPU alloc success======>CPU:%s\n",smem_panic_cpu);
+		}
+		else
+		{		
+			pr_err("SMEM_PANIC_CPU alloc fail!\n");
+		}
+		//smem_panic_pid
+		smem_panic_pid = (char*)smem_alloc(SMEM_PANIC_PID, 8*sizeof(char),0,SMEM_ANY_HOST_FLAG);	
+		if(smem_panic_pid!=NULL)
+		{	
+			snprintf(smem_panic_pid, 8*sizeof(char),"%d",current->pid);
+			printk(KERN_ERR"====SMEM_PANIC_PID alloc success======>PID:%s\n",smem_panic_pid);
+		}
+		else
+		{				
+			pr_err("SMEM_PANIC_PID alloc fail!\n");
+		}	
+		//smem_pc
+		smem_pc = (char*)smem_alloc(SMEM_PC_INFO, 40*sizeof(char),0,SMEM_ANY_HOST_FLAG);
+		if(smem_pc!=NULL)
+		{			
+			//snprintf(smem_pc, 40*sizeof(char),"%s",(char*)instruction_pointer(regs));
+			sprint_symbol(smem_pc,(unsigned long)__builtin_extract_return_addr((void*)instruction_pointer(regs)));
+			printk(KERN_ERR"====SMEM_PC_INFO alloc success======>PC:%s\n",(char*)smem_pc);	
+		}
+		else
+		{			
+	
+			pr_err("SMEM_PC_INFO alloc fail!\n");
+		}	
+		//smem_lr
+		smem_lr = (char*)smem_alloc(SMEM_LR_INFO, 40*sizeof(char),0,SMEM_ANY_HOST_FLAG);	
+		if(smem_lr!=NULL)
+		{	
+			//snprintf(smem_lr, 40*sizeof(char),"%s",(char*)regs->ARM_lr);
+			sprint_symbol(smem_lr,(unsigned long)__builtin_extract_return_addr((void*)regs->ARM_lr));
+			printk(KERN_ERR"====SMEM_LR_INFO alloc success======>LR:%s\n",(char*)smem_lr);
+		}
+		else
+		{	
+			pr_err("SMEM_LR_INFO alloc fail!\n");
+		}
+		/*
+		switch(raw_smp_processor_id())
+		{
+			case 0:
+				break;		
+			case 1:
+				break;	
+			case 2:
+				break;
+			case 3:
+				break;
+			default:
+				break;
+		}	
+		*/
+	}
+#endif
+//End add
 	printk("pc : [<%08lx>]    lr : [<%08lx>]    psr: %08lx\n"
 	       "sp : %08lx  ip : %08lx  fp : %08lx\n",
 		regs->ARM_pc, regs->ARM_lr, regs->ARM_cpsr,

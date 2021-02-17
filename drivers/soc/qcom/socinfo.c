@@ -668,6 +668,138 @@ msm_get_raw_id(struct device *dev,
 		socinfo_get_raw_id());
 }
 
+//add start by lingchan.hu@tcl.com for store efuse state PR-1783379
+static ssize_t
+msm_get_oem_efuse(struct device *dev,
+                    struct device_attribute *attr,
+                    char *buf)
+{
+	uint32_t *efuse = NULL;
+	unsigned size = 0;
+	efuse = smem_get_entry(SMEM_VERSION_OEM_STATUS, &size,0,SMEM_ANY_HOST_FLAG);
+	if(efuse != NULL){
+		char tempstr[10];
+		if(0x7f == *(efuse+1))
+			snprintf(tempstr, PAGE_SIZE, "locked");
+		else
+			snprintf(tempstr, PAGE_SIZE, "nolock");
+		pr_info("[STinfo] efuse = %x     boot1_lock = %x\n",*efuse,*(efuse+1));
+		if((*efuse) & 0x1)
+			return snprintf(buf, PAGE_SIZE, "efuse,rb ver:%x,boot1:%s ",(*efuse)>>16,tempstr);
+		else
+			return snprintf(buf, PAGE_SIZE, "non-efuse,boot1:%s",tempstr);
+	}
+	return snprintf(buf, PAGE_SIZE, "efuse check error\n" );
+}
+//add end by lingchan.hu@tcl.com for store efuse state PR-1783379
+
+//[Feature]-Add-BEGIN by TCTSZ.yongzhong.cheng@tcl.com,2015/6/29,for ALM391327: add board id
+uint32_t socinfo_gpio_board_id(void)
+{   
+	uint32_t * gpio_board_id_smem; 
+	uint32_t test_forgpio = 0xFFFFFFFF;
+	gpio_board_id_smem = smem_alloc(SMEM_VERSION_GPIO_BOARD_ID, sizeof(uint32_t),0,SMEM_ANY_HOST_FLAG);
+	if(gpio_board_id_smem!=NULL)
+	{
+	pr_info("%s:kernel:share memery get:%u\n", __func__,*gpio_board_id_smem);
+	test_forgpio = *gpio_board_id_smem;
+	pr_info("%s: kernel!get:%u\n", __func__,test_forgpio);
+	}
+	printk("%s: msm_get_gpio_board_id = %u\n", __func__,test_forgpio);
+	return  test_forgpio;
+}
+static ssize_t	
+msm_get_gpio_board_id(struct device *dev,
+			struct device_attribute *attr,	
+			char *buf)	
+{	
+	return snprintf(buf, PAGE_SIZE, "%u\n", socinfo_gpio_board_id());
+}	
+//[Feature]-Add-END by TCTSZ.yongzhong.cheng@TCL.com, 2015/6/29,for  ALM391327
+
+//[Feature]-Add-BEGIN by TCTSZ. add board id for Pixi4454GEVDO shengwang.luo@tcl.com, 2015/07/06, for Task415198
+#if defined(JRD_PROJECT_PIXI4454GEVDO)
+uint32_t socinfo_gpio_project_name(void)
+{
+	uint32_t * gpio_project_name_smem;
+	uint32_t test_forgpio = 0xFFFFFFFF;
+	gpio_project_name_smem = smem_alloc(SMEM_VERSION_PROJECT_NAME, sizeof(uint32_t),0,SMEM_ANY_HOST_FLAG);
+	if(gpio_project_name_smem != NULL) {
+		test_forgpio = *gpio_project_name_smem;
+		pr_info("%s:kernel:share memery get: %u\n", __func__, test_forgpio);
+	}
+
+	return test_forgpio;
+}
+static ssize_t
+msm_get_project_name(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n", socinfo_gpio_project_name());
+}
+#endif
+//[Feature]-Add-END by TCTSZ. shengwang.luo@tcl.com, 2015/07/06, for Task415198
+
+/* [Feature]-Add-BEGIN by TCTSZ.Add node to get boot1 status wenzhao.guo@tcl.com, 2016/03/01, for Task-1715780 */
+#if defined(JRD_PROJECT_PIXI445SPR)
+
+#define FLASH_IMEI_SIZE 32
+#define FLASH_MEID_SIZE 14
+
+typedef struct
+{
+    u8 Salt[16];
+    u8 Hash1[20];
+    u8 Hash2[20];
+    u8 Hash3[20];
+    u8 Hash4[20];
+    u8 Hash5[20];
+}SML_CONFIG;
+
+typedef struct
+{
+    u32 magic1;
+    u8 imei_1[FLASH_IMEI_SIZE];
+    u8 imei_2[FLASH_IMEI_SIZE];
+    u8 imei_3[FLASH_IMEI_SIZE];
+    u8 imei_4[FLASH_IMEI_SIZE];
+    u8 meid[FLASH_MEID_SIZE];
+    u8 boot1_lock_flag;
+    u8 spc[16];
+    u8 otksl[16];
+    u32 valid_mask;
+    SML_CONFIG sml_config[2];
+    u8 cu_ref[20];
+    u8 key_hash[16];
+    u8 iv_hash[16];
+}secure_data;
+
+static ssize_t
+msm_get_boot1_status(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	secure_data * get_boot1_status_smem;
+	char boot1_status[10];
+	get_boot1_status_smem = smem_alloc(SMEM_ID_VENDOR0, sizeof(secure_data), 0, SMEM_ANY_HOST_FLAG);
+	if(get_boot1_status_smem != NULL) {
+		if(0x7f == get_boot1_status_smem->boot1_lock_flag)
+			snprintf(boot1_status, PAGE_SIZE, "locked");
+		else if(0x6e == get_boot1_status_smem->boot1_lock_flag)
+			snprintf(boot1_status, PAGE_SIZE, "unlocked");
+		else
+			snprintf(boot1_status, PAGE_SIZE, "unknown");		
+	}else {
+		snprintf(boot1_status, PAGE_SIZE, "read fail");
+	}
+
+	pr_info("%s:kernel:share memery get: %s\n", __func__, boot1_status);
+	return snprintf(buf, PAGE_SIZE, "%s\n", boot1_status);
+}
+#endif
+/* [Feature]-Add-END by TCTSZ.Add node to get boot1 status wenzhao.guo@tcl.com, 2016/03/01, for Task-1715780 */
+
 static ssize_t
 msm_get_raw_version(struct device *dev,
 		     struct device_attribute *attr,
@@ -926,9 +1058,32 @@ msm_select_image(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+//add start by lingchan.hu@tcl.com for store efuse state PR-1783379
+static struct device_attribute msm_soc_attr_oem_efuse =
+       __ATTR(oem_efuse, S_IRUGO, msm_get_oem_efuse,  NULL);
+//add end by lingchan.hu@tcl.com for store efuse state PR-1783379
 
 static struct device_attribute msm_soc_attr_raw_version =
 	__ATTR(raw_version, S_IRUGO, msm_get_raw_version,  NULL);
+
+//[Feature]-Add-BEGIN by TCTSZ.yongzhong.cheng@tcl.com,2015/6/29,for ALM391327: add board id
+	static struct device_attribute msm_soc_attr_msm_get_gpio_board_id =	
+	__ATTR(gpio_for_board_id, S_IRUGO, msm_get_gpio_board_id,  NULL);
+//[Feature]-Add-END by TCTSZ.yongzhong.cheng@TCL.com, 2015/6/29,for  ALM391327
+
+//[Feature]-Add-BEGIN by TCTSZ. add board id for Pixi4454GEVDO shengwang.luo@tcl.com, 2015/07/06, for Task415198
+#if defined(JRD_PROJECT_PIXI4454GEVDO)
+static struct device_attribute msm_soc_attr_msm_get_project_name =
+	__ATTR(gpio_for_project_name, S_IRUGO, msm_get_project_name,  NULL);
+#endif
+//[Feature]-Add-END by TCTSZ. shengwang.luo@tcl.com, 2015/07/06, for Task415198
+
+/* [Feature]-Add-BEGIN by TCTSZ.Add node to get boot1 status wenzhao.guo@tcl.com, 2016/03/01, for Task-1715780 */
+#if defined(JRD_PROJECT_PIXI445SPR)
+static struct device_attribute msm_soc_attr_msm_get_boot1_status =
+	__ATTR(boot1_status, S_IRUGO, msm_get_boot1_status,  NULL);
+#endif
+/* [Feature]-Add-BEGIN by TCTSZ.Add node to get boot1 status wenzhao.guo@tcl.com, 2016/03/01, for Task-1715780 */
 
 static struct device_attribute msm_soc_attr_raw_id =
 	__ATTR(raw_id, S_IRUGO, msm_get_raw_id,  NULL);
@@ -1052,7 +1207,23 @@ static void __init populate_soc_sysfs_files(struct device *msm_soc_device)
 	device_create_file(msm_soc_device, &image_variant);
 	device_create_file(msm_soc_device, &image_crm_version);
 	device_create_file(msm_soc_device, &select_image);
+	device_create_file(msm_soc_device, &msm_soc_attr_oem_efuse); //add  by lingchan.hu@tcl.com for store efuse state PR-1783379
+//[Feature]-Add-BEGIN by TCTSZ.yongzhong.cheng@tcl.com,2015/6/29,for ALM391327: add board id
+	device_create_file(msm_soc_device,&msm_soc_attr_msm_get_gpio_board_id);
+//[Feature]-Add-END by TCTSZ.yongzhong.cheng@TCL.com, 2015/6/29,for  ALM391327
 
+//[Feature]-Add-BEGIN by TCTSZ. add board id for Pixi4454GEVDO shengwang.luo@tcl.com, 2015/07/06, for Task415198
+#if defined(JRD_PROJECT_PIXI4454GEVDO)
+	device_create_file(msm_soc_device, &msm_soc_attr_msm_get_project_name);
+#endif
+//[Feature]-Add-END by TCTSZ. shengwang.luo@tcl.com, 2015/07/06, for Task415198
+
+/* [Feature]-Add-BEGIN by TCTSZ.Add node to get boot1 status wenzhao.guo@tcl.com, 2016/03/01, for Task-1715780 */
+#if defined(JRD_PROJECT_PIXI445SPR)
+	device_create_file(msm_soc_device, &msm_soc_attr_msm_get_boot1_status);
+#endif
+/* [Feature]-Add-BEGIN by TCTSZ.Add node to get boot1 status wenzhao.guo@tcl.com, 2016/03/01, for Task-1715780 */
+	
 	switch (legacy_format) {
 	case 10:
 	case 9:

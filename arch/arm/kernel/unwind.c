@@ -48,6 +48,12 @@
 #include <asm/stacktrace.h>
 #include <asm/traps.h>
 #include <asm/unwind.h>
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+#include <soc/qcom/smem.h>
+#include <linux/string.h>
+#endif
+//End add
 
 /* Dummy functions to avoid linker complaints */
 void __aeabi_unwind_cpp_pr0(void)
@@ -404,12 +410,23 @@ int unwind_frame(struct stackframe *frame)
 
 	return URC_OK;
 }
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+extern bool die_flag;
+#endif
+//End add
 
 void unwind_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 {
 	struct stackframe frame;
 	register unsigned long current_sp asm ("sp");
-
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+	void *smem_panic_stack = NULL;
+	int stack_num = 1;
+	char stack_temp[40]={'\0'};
+#endif
+//End add
 	pr_debug("%s(regs = %p tsk = %p)\n", __func__, regs, tsk);
 
 	if (!tsk)
@@ -438,7 +455,23 @@ void unwind_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 		frame.lr = 0;
 		frame.pc = thread_saved_pc(tsk);
 	}
-
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+	if(die_flag)
+	{
+		smem_panic_stack = smem_alloc(SMEM_STACK, 5*40*sizeof(char),0,SMEM_ANY_HOST_FLAG);			
+		if(smem_panic_stack == NULL)		
+			smem_panic_stack = smem_find(SMEM_STACK, 5*40*sizeof(char),0,SMEM_ANY_HOST_FLAG);
+		if(smem_panic_stack != NULL)
+		{	
+			memset(smem_panic_stack,'\0',5*40*sizeof(char));//init			
+			pr_err("SMEM_STACK alloc success ,init 0\n");
+		}
+		else
+			pr_err("SMEM_PANIC_CPU alloc and find fail!\n");
+	}
+#endif
+//End add
 	while (1) {
 		int urc;
 		unsigned long where = frame.pc;
@@ -447,7 +480,26 @@ void unwind_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 		if (urc < 0)
 			break;
 		dump_backtrace_entry(where, frame.pc, frame.sp - 4);
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+		if(die_flag)
+		{
+			if(stack_num <= 8)
+			{
+				snprintf(stack_temp,sizeof(stack_temp),"%pS\n",(void*)frame.pc);	
+				strcat((char*)(smem_panic_stack), stack_temp);
+				stack_num++;
+			}
+		}
+#endif
+//End add
 	}
+//Begin add by (TCTSZ) zhaohong.chen@tcl.com for RAMDUMP UI
+#ifdef CONFIG_JRD_RAMDUMP_UI
+	if(die_flag)
+		printk(KERN_ERR"%s:smem_panic_stack:\n%s\n",__func__,(char*)smem_panic_stack);	
+#endif
+//End add
 }
 
 struct unwind_table *unwind_table_add(unsigned long start, unsigned long size,

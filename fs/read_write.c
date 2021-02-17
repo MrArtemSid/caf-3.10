@@ -22,6 +22,11 @@
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 
+// verify the reserved size for user data partition by zhiling.chen start
+#include <linux/statfs.h>
+#include <linux/mount.h>
+//long long store = 0;
+// verify the reserved size for user data partition by zhiling.chen end
 typedef ssize_t (*io_fn_t)(struct file *, char __user *, size_t, loff_t *);
 typedef ssize_t (*iov_fn_t)(struct kiocb *, const struct iovec *,
 		unsigned long, loff_t);
@@ -447,9 +452,15 @@ ssize_t __kernel_write(struct file *file, const char *buf, size_t count, loff_t 
 	return ret;
 }
 
+// verify the reserved size for user data partition by zhiling.chen start
+#define CHECK_1TH  (10 * 1024 * 1024)
+// verify the reserved size for user data partition by zhiling.chen end
 ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_t *pos)
 {
 	ssize_t ret;
+        // verify the reserved size for user data partition by zhiling.chen start
+        //struct kstatfs stat;
+        // verify the reserved size for user data partition by zhiling.chen end
 
 	if (!(file->f_mode & FMODE_WRITE))
 		return -EBADF;
@@ -459,6 +470,25 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 		return -EFAULT;
 
 	ret = rw_verify_area(WRITE, file, pos, count);
+// verify the reserved size for user data partition by zhiling.chen start
+#ifdef LIMIT_USERDATA_SIZE
+        if (!memcmp(file->f_path.mnt->mnt_sb->s_type->name, "fuse", 5)) {
+                store -= count;
+                if (store <= (USERDATA_PARTITION_RESERVED_SIZE_TH  + CHECK_1TH*2)) {    
+                        vfs_statfs(&file->f_path, &stat);
+                        store = stat.f_bfree * stat.f_bsize+USERDATA_PARTITION_RESERVED_SIZE_TH;
+                        //printk("initialize data free size when acess sdcard0 ,%llx\n",store);
+                        store -= count;
+                        if (store <= USERDATA_PARTITION_RESERVED_SIZE_TH) {
+                                //printk("wite sdcard0 over flow, %llx\n",store);
+                                store += count;
+                                return -ENOSPC;
+                        }
+                }
+                store +=count;
+        }
+#endif
+//end by zhiling.chen
 	if (ret >= 0) {
 		count = ret;
 		file_start_write(file);

@@ -125,6 +125,9 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 	uint32_t array_flash_seq[2];
 	uint32_t array_torch_seq[2];
 	int i = 0;
+
+	pr_err("%s",__func__); // add by zhaohong.chen@tcl.com for flashlight debug
+
 	flash_led = devm_kzalloc(&pdev->dev, sizeof(struct led_gpio_flash_data),
 				 GFP_KERNEL);
 	if (flash_led == NULL) {

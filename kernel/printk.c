@@ -55,6 +55,12 @@
 extern void printascii(char *);
 #endif
 
+// [Feature]-Add-BEGIN by TCTSZ. add uart log output controller. wenzhao.guo@tcl.com, 2015/09/23, for [Task-662897]
+#ifdef CONFIG_TCT_PRINTK_UART 
+bool printk_disable_uart = 0;
+#endif
+// [Feature]-Add-END by TCTSZ. add uart log output controller. wenzhao.guo@tcl.com, 2015/09/23, for [Task-662897]
+
 /* printk's without a loglevel use this.. */
 #define DEFAULT_MESSAGE_LOGLEVEL CONFIG_DEFAULT_MESSAGE_LOGLEVEL
 
@@ -204,6 +210,12 @@ enum log_flags {
 	LOG_CONT	= 8,	/* text is a fragment of a continuation line */
 };
 
+//[Feature]-Add-BEGIN by TCTSZ. porting TCT log printk . xiaoju.liang@tcl.com, 2015/7/1, for PR403392
+#ifdef CONFIG_TCT_LOG_PRINTK
+enum log_flags prevflag = LOG_NEWLINE;//add by jch for add cupid and pid to kernel log
+#endif
+//[Feature]-Add-END by TCTSZ. xiaoju.liang@tcl.com, 2015/7/1, for PR403392
+
 struct log {
 	u64 ts_nsec;		/* timestamp in nanoseconds */
 	u16 len;		/* length of entire record */
@@ -261,6 +273,32 @@ static u32 clear_idx;
 static char __log_buf[__LOG_BUF_LEN] __aligned(LOG_ALIGN);
 static char *log_buf = __log_buf;
 static u32 log_buf_len = __LOG_BUF_LEN;
+
+// [Feature]-Add-BEGIN by TCTSZ. add uart log output controller. wenzhao.guo@tcl.com, 2015/09/23, for [Task-662897]
+#ifdef CONFIG_TCT_PRINTK_UART
+extern int mt_need_uart_console;
+inline void mt_disable_uart(void)
+{
+    if (mt_need_uart_console == 0) {
+        printk("<< printk console disable >>\n");
+        printk_disable_uart = 1;
+    } else {
+        printk("<< printk console can't be disabled >>\n");
+    }
+}
+inline void mt_enable_uart(void)
+{
+    if (mt_need_uart_console == 1) {
+        if (printk_disable_uart == 0)
+            return;
+        printk_disable_uart = 0;
+        printk("<< printk console enable >>\n");
+    } else {
+        printk("<< printk console can't be enabled >>\n");
+    }
+}
+#endif
+// [Feature]-Add-END by TCTSZ. add uart log output controller. wenzhao.guo@tcl.com, 2015/09/23, for [Task-662897]
 
 #if defined(CONFIG_OOPS_LOG_BUFFER)
 #define __OOPS_LOG_BUF_LEN (1 << CONFIG_OOPS_LOG_BUF_SHIFT)
@@ -412,6 +450,60 @@ static void log_store(int facility, int level,
 {
 	struct log *msg;
 	u32 size, pad_len;
+//[Feature]-Add-BEGIN by TCTSZ. porting TCT log printk . xiaoju.liang@tcl.com, 2015/7/1, for PR403392
+#ifdef CONFIG_TCT_LOG_PRINTK
+//add by jch for add cupid and pid to kernel log	
+	static char tctbuf[LOG_LINE_MAX];
+	static char testbuf[64];
+       size_t tct_pre, tmp_len;
+	size_t text_lengh;  
+	char *tct_text = tctbuf;
+	char *next;
+	size_t len = 0;
+	bool prefix = true;
+	
+	if ((prevflag & LOG_CONT) && !((flags&0x1f) & LOG_PREFIX))
+		prefix = false;
+
+	if ( (flags&0x1f)  & LOG_CONT) {
+		if ((prevflag & LOG_CONT) && !(prevflag & LOG_NEWLINE))
+			prefix = false;
+	}
+
+	if (prefix){
+	   tmp_len = text_len;
+	   do {
+	   	    if(tmp_len+1 <= 0){
+				len--;				
+				break;
+		    }
+		    next = memchr(text, '\n', text_len);	  	            	    
+		    if (next) {
+				text_lengh = next - text;
+				next++;
+				tmp_len -= next - text;	
+	
+		    } else {
+				text_lengh = tmp_len;
+		    }
+		    if (sprintf(testbuf, "c%d [%s %d] ", smp_processor_id(),current->comm,current->pid) + text_lengh + 1 >= LOG_LINE_MAX - len)
+                          break;
+                  tct_pre = sprintf(tct_text+len, "c%d [%s %d] ", smp_processor_id(),current->comm,current->pid);
+                  len += tct_pre;
+                  memcpy(tct_text + len, text, text_lengh);
+                  len += text_lengh;	
+		    if (next){
+		        tct_text[len++] = '\n';
+		    }	
+		    text = next;
+	      } while (text);
+            text = tct_text;
+	     text_len = len;
+	}
+	prevflag =  flags & 0x1f;//add by jch for add cupid and pid to kernel log	
+//end add by jch for add cupid and pid to kernel log
+#endif
+//[Feature]-Add-END by TCTSZ. xiaoju.liang@tcl.com, 2015/7/1, for PR403392
 
 	/* number of '\0' padding bytes to next message */
 	size = sizeof(struct log) + text_len + dict_len;
@@ -1018,6 +1110,11 @@ static bool printk_time = 1;
 static bool printk_time;
 #endif
 module_param_named(time, printk_time, bool, S_IRUGO | S_IWUSR);
+// [Feature]-Add-BEGIN by TCTSZ. add uart log output controller. wenzhao.guo@tcl.com, 2015/09/23, for [Task-662897]
+#ifdef CONFIG_TCT_PRINTK_UART
+module_param_named(disable_uart, printk_disable_uart, bool, S_IRUGO | S_IWUSR);
+#endif
+// [Feature]-Add-END by TCTSZ. add uart log output controller. wenzhao.guo@tcl.com, 2015/09/23, for [Task-662897]
 
 static size_t print_time(u64 ts, char *buf)
 {
@@ -1564,6 +1661,12 @@ static void call_console_drivers(int level, const char *text, size_t len)
 		return;
 
 	for_each_console(con) {
+		// [Feature]-Add-BEGIN by TCTSZ. add uart log output controller. wenzhao.guo@tcl.com, 2015/09/23, for [Task-662897]
+		#ifdef CONFIG_TCT_PRINTK_UART
+		if (printk_disable_uart && (con->flags & CON_CONSDEV))
+			continue;
+		#endif
+		// [Feature]-Add-END by TCTSZ. add uart log output controller. wenzhao.guo@tcl.com, 2015/09/23, for [Task-662897]
 		if (exclusive_console && con != exclusive_console)
 			continue;
 		if (!(con->flags & CON_ENABLED))
@@ -1758,6 +1861,13 @@ static size_t cont_print_text(char *text, size_t size)
 
 	if (cont.cons == 0 && (console_prev & LOG_NEWLINE)) {
 		textlen += print_time(cont.ts_nsec, text);
+//[Feature]-Add-BEGIN by TCTSZ. porting TCT log printk . xiaoju.liang@tcl.com, 2015/7/1, for PR403392
+#ifdef CONFIG_TCT_LOG_PRINTK
+		//add by jch for add cupid and pid to kernel log
+		textlen += sprintf(text + textlen, "c%d [%s %d] ", smp_processor_id(),current->comm,current->pid);		
+		//end add by jch for add cupid and pid to kernel log
+#endif
+//[Feature]-Add-END by TCTSZ. xiaoju.liang@tcl.com, 2015/7/1, for PR403392
 		size -= textlen;
 	}
 

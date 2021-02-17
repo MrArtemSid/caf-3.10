@@ -554,7 +554,17 @@ static int fsg_setup(struct usb_function *f,
 				w_length != 1)
 			return -EDOM;
 		VDBG(fsg, "get max LUN\n");
-		*(u8 *)req->buf = fsg->common->nluns - 1;
+//[Feature]-Add-BEGIN by TCTSZ. USB driver manual install wenzhao.guo@tcl.com, 2015/11/10, for [Task-796662]
+               printk(KERN_ERR "CONFIG_JRD_CD_ROM_EMUM_EJECT disabled(N)");
+                if (fsg->common->cdev->desc.idProduct == 0xAFF0)
+                {
+                    *(u8 *)req->buf = fsg->common->nluns - 1;
+                }
+                else
+                {
+                    *(u8 *)req->buf = 0;
+                }
+//[Feature]-Add-END by TCTSZ. USB driver manual install wenzhao.guo@tcl.com, 2015/11/10, for [Task-796662]
 
 		/* Respond with data/status */
 		req->length = min((u16)1, w_length);
