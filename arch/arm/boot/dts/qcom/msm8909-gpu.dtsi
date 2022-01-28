@@ -50,7 +50,7 @@
 
 		qcom,chipid = <0x03000400>;
 
-		qcom,initial-pwrlevel = <1>;
+		qcom,initial-pwrlevel = <2>; //[Feature]-Change by cuiping.shi for save power, 2016/03/30
 
 		/* Idle Timeout = HZ/12 */
 		qcom,idle-timeout = <8>;

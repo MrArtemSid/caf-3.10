@@ -31,7 +31,7 @@
                 mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
-			qcom,mdss-fb-format = "rgba8888";
+			//qcom,mdss-fb-format = "rgb888"; remove by junfeng.zhou for poweroff charging dispaly . 20151021
 			qcom,cont-splash-memory {
 				linux,contiguous-region = <&cont_splash_mem>;
 			};
@@ -129,6 +129,12 @@
 		};
 	};
 };
+//[Feature]-Add-BEGIN by TCTSZ. lcd 8394D bring up . yusen.ke.sz@tcl.com, 2015/6/19, for PR364368 
+#include "dsi-panel-hx8394d-txd-hd-video.dtsi"
+//[Feature]-Add-END by TCTSZ. yusen.ke.sz@tcl.com, 2015/6/19, for PR364368
+//[Feature]-Add-BEGIN by TCTSZ. lcd ili9881 bring up . yusen.ke.sz@tcl.com, 2015/7/7, for PR364368 
+#include "dsi-panel-ili9881c-tdt-hd-video.dtsi"
+//[Feature]-Add-END by TCTSZ. yusen.ke.sz@tcl.com, 2015/7/7, for PR364368
 
 #include "dsi-panel-sim-video.dtsi"
 #include "dsi-panel-sim-cmd.dtsi"

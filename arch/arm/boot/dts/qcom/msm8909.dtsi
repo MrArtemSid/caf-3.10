@@ -81,7 +81,7 @@
 	memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
-
+/*add shared efs ram size form 0xE0000 to 0x160000 ,by wenming*/
 		external_image_mem: external_image__region@0 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
@@ -89,7 +89,7 @@
 			reg = <0x0 0x87a00000 0x0 0x0600000>;
 			label = "external_image_mem";
 		};
-
+/*End:add*/
 		modem_adsp_mem: modem_adsp_region@0 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
@@ -441,33 +441,43 @@
 	qcom,msm-thermal {
 		compatible = "qcom,msm-thermal";
 		qcom,sensor-id = <3>;
+//[Feature]-Change-BEGIN by TCTSZ.cuiping.shi, 2015/7/16, thermal control
 		qcom,poll-ms = <250>;
-		qcom,limit-temp = <60>;
+		qcom,limit-temp = <100>;
 		qcom,temp-hysteresis = <10>;
 		qcom,freq-step = <2>;
-		qcom,freq-control-mask = <0xf>;
-		qcom,core-limit-temp = <80>;
+		qcom,freq-control-mask = <0x1>;
+		qcom,core-limit-temp = <110>;
 		qcom,core-temp-hysteresis = <10>;
 		qcom,core-control-mask = <0xe>;
-		qcom,hotplug-temp = <97>;
-		qcom,hotplug-temp-hysteresis = <12>;
+		qcom,hotplug-temp = <110>;
+		qcom,hotplug-temp-hysteresis = <20>;
 		qcom,cpu-sensors = "tsens_tz_sensor3", "tsens_tz_sensor4",
 				"tsens_tz_sensor3", "tsens_tz_sensor4";
-		qcom,freq-mitigation-temp = <97>;
-		qcom,freq-mitigation-temp-hysteresis = <12>;
+		qcom,freq-mitigation-temp = <110>;
+		qcom,freq-mitigation-temp-hysteresis = <20>;
 		qcom,freq-mitigation-value = <400000>;
 		qcom,freq-mitigation-control-mask = <0x01>;
 		qcom,online-hotplug-core;
-		qcom,therm-reset-temp = <115>;
+		//qcom,therm-reset-temp = <115>;
 		qcom,disable-cx-phase-ctrl;
 		qcom,disable-gfx-phase-ctrl;
-		qcom,disable-vdd-mx;
+		//qcom,disable-vdd-mx;
 		qcom,disable-psm;
 		qcom,disable-ocr;
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
+		qcom,vdd-restriction-sensor-id = <3>;
 		vdd-dig-supply = <&pm8909_s1_floor_corner>;
-
+		qcom,synchronous-cluster-id = <0>;
+		qcom,synchronous-cluster-map = <0 0x0F>;
+		qcom,mx-restriction-temp = <5>;
+		qcom,mx-restriction-temp-hysteresis = <10>;
+		qcom,mx-retention-min = <4>;
+		qcom,mx-sensor-id = <3>;
+		vdd-mx-supply = <&pm8909_l3_corner_ao>;
+		//qcom,disable-vdd-rstr;
+//[Feature]-Change-END by TCTSZ.cuiping.shi, 2015/7/16, thermal control
 		qcom,vdd-dig-rstr{
 			qcom,vdd-rstr-reg = "vdd-dig";
 			qcom,levels = <5 7 7>; /* Nominal, Super Turbo, Super Turbo */
@@ -861,6 +871,8 @@
 		reg = <0x086000c8 0xc8>;
 		qcom,pm-qos-latency = <2 1001 12701>;
 		qcom,streaming-func = "rndis","mtp";
+		qcom,android-usb-uicc-nluns = /bits/ 8 <0>;//[Feature]-Add by TCTSZ. Remove Many Disk Devices wenzhao.guo@tcl.com, 2016/01/24, for [Task-1494935]
+		qcom,android-usb-cdrom;//[Feature]-Add by TCTSZ. USB driver manual install wenzhao.guo@tcl.com, 2016/01/24, for [Task-1494935]
 	};
 
 	qcom,usbbam@78c4000 {
@@ -910,14 +922,14 @@
 		#size-cells = <0>;
 		cell-index = <0>;
 	};
-
-	qcom,rmtfs_sharedmem@87c00000 {
+/*add shared efs ram size form 0xE0000 to 0x160000 ,by wenming */
+	qcom,rmtfs_sharedmem@87b80000 {
 		compatible = "qcom,sharedmem-uio";
-		reg = <0x87c00000 0xe0000>;
+		reg = <0x87b80000 0x160000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
 	};
-
+/*End:add*/
 	qcom,dsp_sharedmem@87ce0000 {
 		compatible = "qcom,sharedmem-uio";
 		reg = <0x87ce0000 0x10000>;
@@ -1623,7 +1635,7 @@
 
 	qcom_seecom: qseecom@87a00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x87a00000 0x200000>;
+		reg = <0x87a00000 0x180000>; //add shared efs ram size form 0xE0000 to 0x160000 ,by wenming.zheng
 		reg-names = "secapp-region";
 		qcom,disk-encrypt-pipe-pair = <2>;
 		qcom,hlos-ce-hw-instance = <0>;
@@ -1742,6 +1754,11 @@
 	};
 };
 
+//[Feature]-Add-BEGIN by TCTSZ. lcd 8394D bring up . yusen.ke.sz@tcl.com, 2015/6/19, for PR364368 
+#include "msm-pm8909-rpm-regulator.dtsi"
+#include "msm-pm8909.dtsi"
+#include "msm8909-regulator.dtsi"
+//[Feature]-Add-END by TCTSZ. yusen.ke.sz@tcl.com, 2015/6/19, for PR364368
 &gdsc_venus {
 	clock-names = "bus_clk", "core_clk";
 	clocks = <&clock_gcc clk_gcc_venus0_axi_clk>,

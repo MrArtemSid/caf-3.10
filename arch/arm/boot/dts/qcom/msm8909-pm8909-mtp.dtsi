@@ -13,7 +13,9 @@
 
 &pm8909_chg {
 	status = "ok";
-	qcom,charging-disabled;
+	//[Feature]-Add-BEGIN by TCTSZ. enable pm8909 charging for charging porting junfeng.zhou.sz@tcl.com, 2015/6/19, for PR369037
+	//qcom,charging-disabled;
+	//[Feature]-Add-END by TCTSZ. junfeng.zhou.sz@tcl.com, 2015/6/19, for PR369037
 };
 
 &pm8909_bms {
@@ -106,7 +108,8 @@
 	qcom,msm-micbias2-ext-cap;
 };
 
-&spk_vreg {
+//ting.kang move for main mic and sub mic can't work start
+/*&spk_vreg {
 	status = "okay";
 };
 
@@ -116,7 +119,8 @@
 	qcom,cdc-vdd-spkdrv-current = <20000>;
 	qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias",
 				      "cdc-vdd-spkdrv";
-};
+};*/
+//ting.kang move for main mic and sub mic can't work end
 
 &wcnss {
 	qcom,wcnss-vadc = <&pm8909_vadc>;

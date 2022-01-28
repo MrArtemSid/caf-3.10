@@ -61,7 +61,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			qcom,qpnp-rtc-write = <0>;
-			qcom,qpnp-rtc-alarm-pwrup = <0>;
+			qcom,qpnp-rtc-alarm-pwrup = <1>; //[Fetature] Modify by hong.lan@tcl.com for power off alarm function PR:418823  2015/07/09
 
 			qcom,pm8019_rtc_rw@6000 {
 				reg = <0x6000 0x100>;
